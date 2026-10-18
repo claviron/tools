@@ -34,7 +34,9 @@ Small tools stay small:
   `claviron::hosting::HostingStore`, and performs ACME account operations
   through `claviron_acme::AcmeStore`. SeaORM entities and raw schema queries
   do not cross into the CLI.
-- `journal` owns Linux journald display.
+
+The former journald viewer is preserved under `retired/crates/journal`; it is
+excluded from the workspace, deployment commands and published packages.
 
 ## Shared library
 

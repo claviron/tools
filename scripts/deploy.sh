@@ -17,7 +17,6 @@ show_help() {
   echo "  claviron-cert    -> package 'claviron-cert'"
   echo "  claviron-client  -> package 'claviron-client'"
   echo "  claviron-hosting -> package 'claviron-hosting-cli'"
-  echo "  claviron-journal -> package 'claviron-journal' (Linux only; skipped on macOS/FreeBSD)"
   echo ""
   echo "Options:"
   echo "  --bin <name>            Deploy one or more specific tool binaries (repeatable)."
@@ -35,7 +34,6 @@ show_help() {
   echo "  claviron-cert"
   echo "  claviron-client"
   echo "  claviron-hosting"
-  echo "  claviron-journal"
 }
 
 if [ "$1" = "-h" ] || [ "$1" = "--help" ]; then
@@ -56,7 +54,6 @@ if ! [ -x "$DEPLOY_SCRIPT" ]; then
 fi
 
 HOSTNAME="$(hostname -s)"
-HOST_OS="$(uname -s)"
 
 BUILD_MODE="release"
 TARGET_HOST="${HOSTNAME}"
@@ -199,13 +196,6 @@ deploy_one() {
   claviron-hosting)
     run_deploy "claviron-hosting-cli" "$bin"
     ;;
-  claviron-journal)
-    if [ "$HOST_OS" != "Linux" ]; then
-      echo "Skipping claviron-journal on ${HOST_OS} (systemd-journald is Linux-only)"
-      return 0
-    fi
-    run_deploy "claviron-journal" "$bin"
-    ;;
   claviron)
     echo "Error: claviron server binary lives in claviron-full." >&2
     echo "Use claviron-full/scripts/deploy.sh instead." >&2
@@ -213,21 +203,17 @@ deploy_one() {
     ;;
   *)
     echo "Error: Unknown binary name: $bin" >&2
-    echo "Valid tool binaries: claviron-acme, claviron-cert, claviron-client, claviron-hosting, claviron-journal" >&2
+    echo "Valid tool binaries: claviron-acme, claviron-cert, claviron-client, claviron-hosting" >&2
     exit 1
     ;;
   esac
 }
 
 if [ "$DEPLOY_ALL" = "true" ]; then
-  BINS=(claviron-client claviron-hosting claviron-journal claviron-acme claviron-cert)
+  BINS=(claviron-client claviron-hosting claviron-acme claviron-cert)
 fi
 
 for bin in "${BINS[@]}"; do
-  if [ "$bin" = "claviron-journal" ] && [ "$HOST_OS" != "Linux" ]; then
-    echo "Skipping claviron-journal on ${HOST_OS} (systemd-journald is Linux-only)"
-    continue
-  fi
   deploy_one "$bin"
   if [ "$DRY_RUN" != "true" ]; then
     echo "✅ ${bin} deployed successfully"
