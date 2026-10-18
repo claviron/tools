@@ -1,0 +1,33 @@
+[package]
+name = "claviron-client"
+version.workspace = true
+publish.workspace = true
+edition = "2024"
+autotests = false
+description = "Claviron gRPC control-plane client"
+
+[dependencies]
+claviron.workspace = true
+claviron-tools = { workspace = true, features = ["config"] }
+clap.workspace = true
+dotenvy.workspace = true
+hyper.workspace = true
+hyper-rustls.workspace = true
+hyper-util.workspace = true
+prost.workspace = true
+prost-types.workspace = true
+rustls.workspace = true
+serde.workspace = true
+serde_yaml.workspace = true
+time.workspace = true
+tokio.workspace = true
+tonic.workspace = true
+tonic-prost.workspace = true
+tracing.workspace = true
+
+[build-dependencies]
+tonic-prost-build.workspace = true
+
+[[bin]]
+name = "claviron-client"
+path = "src/main.rs"

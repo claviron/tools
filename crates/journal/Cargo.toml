@@ -1,0 +1,15 @@
+[package]
+name = "claviron-journal"
+version.workspace = true
+publish.workspace = true
+edition = "2024"
+description = "Claviron systemd journal viewer"
+
+[target.'cfg(target_os = "linux")'.dependencies]
+systemd.workspace = true
+colored.workspace = true
+time.workspace = true
+
+[[bin]]
+name = "claviron-journal"
+path = "src/main.rs"

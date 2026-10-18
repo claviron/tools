@@ -1,0 +1,37 @@
+[package]
+autotests = false
+name = "claviron-hosting-cli"
+version.workspace = true
+publish.workspace = true
+edition = "2024"
+description = "Claviron hosting DB and certificate management CLI"
+
+[dependencies]
+claviron = { workspace = true, features = ["hosting", "postgres", "sqlite"] }
+claviron-tools = { workspace = true, features = ["acme", "db", "sqlite"] }
+claviron-acme = { workspace = true, features = ["postgres", "sqlite"] }
+clap.workspace = true
+colored.workspace = true
+dialoguer = "0.12"
+dotenvy.workspace = true
+rustls.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+serde_yaml.workspace = true
+time.workspace = true
+tokio.workspace = true
+tracing.workspace = true
+x509-parser.workspace = true
+base64 = "0.22"
+rsa = { version = "0.9", features = ["pem"] }
+p256 = { version = "0.13", features = ["pem", "pkcs8"] }
+rcgen = { version = "0.14", default-features = false, features = ["aws_lc_rs", "pem"] }
+url = "2"
+
+[dev-dependencies]
+tempfile = "3"
+sqlx = { workspace = true, features = ["sqlite"] }
+
+[[bin]]
+name = "claviron-hosting"
+path = "src/main.rs"

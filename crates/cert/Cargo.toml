@@ -1,0 +1,30 @@
+[package]
+autotests = false
+name = "claviron-cert"
+version.workspace = true
+publish.workspace = true
+edition = "2024"
+description = "Claviron local certificate generation and inspection tool"
+
+[features]
+default = []
+hosting = ["claviron/hosting", "claviron/postgres", "claviron-tools/db", "dep:tokio"]
+sqlite = ["hosting", "claviron/sqlite", "claviron-tools/sqlite"]
+
+[dependencies]
+claviron = { workspace = true, features = ["ssl"] }
+claviron-tools.workspace = true
+clap.workspace = true
+dotenvy.workspace = true
+nix.workspace = true
+dirs.workspace = true
+serde.workspace = true
+tokio = { workspace = true, optional = true }
+
+[dev-dependencies]
+serde_yaml.workspace = true
+tempfile = "3"
+
+[[bin]]
+name = "claviron-cert"
+path = "src/main.rs"

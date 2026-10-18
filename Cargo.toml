@@ -1,0 +1,82 @@
+[package]
+name = "claviron-tools"
+version.workspace = true
+publish.workspace = true
+edition = "2024"
+description = "Shared utilities for Claviron operator and client tools"
+exclude = [".cargo/**", "AGENTS.md", "scripts/**", "TODO", "rustfmt.toml"]
+
+[dependencies]
+tracing-subscriber.workspace = true
+claviron = { workspace = true, optional = true }
+claviron-acme = { workspace = true, optional = true }
+dirs = { workspace = true, optional = true }
+serde = { workspace = true, optional = true }
+serde_yaml = { workspace = true, optional = true }
+sqlx = { workspace = true, optional = true }
+tokio = { workspace = true, optional = true }
+
+[features]
+default = []
+config = ["dep:claviron", "dep:dirs", "dep:serde", "dep:serde_yaml", "dep:tokio"]
+acme = ["config", "dep:claviron-acme"]
+db = ["config", "dep:sqlx"]
+sqlite = ["db", "sqlx/sqlite"]
+
+[workspace]
+members = [
+    "crates/acme",
+    "crates/cert",
+    "crates/client",
+    "crates/hosting",
+    "crates/journal",
+]
+default-members = [
+    ".",
+    "crates/acme",
+    "crates/cert",
+    "crates/client",
+    "crates/hosting",
+    "crates/journal",
+]
+resolver = "3"
+
+[workspace.package]
+version = "0.2.0-alpha.17"
+# Pre-releases use the private registry; final releases are published
+# separately to crates.io.
+publish = true
+
+[workspace.dependencies]
+claviron-tools = { path = ".", version = "0.2.0-alpha.17", default-features = false }
+claviron = { path = "../claviron", version = "0.2.0-alpha.17", default-features = false }
+claviron-acme = {  path = "../claviron-extra/crates/acme", version = "0.2.0-alpha.17", default-features = false }
+
+clap = { version = "4.6", features = ["derive", "env"] }
+colored = "3"
+dirs = "7.0"
+dotenvy = "0.15"
+humantime = "2.3"
+hyper = { version = "1.11", features = ["client", "http2"] }
+hyper-rustls = { version = "0.27", default-features = false, features = ["http2", "logging", "tls12", "aws-lc-rs"] }
+hyper-util = { version = "0.1", features = ["client-legacy", "http1", "tokio"] }
+nix = { version = "0.31", features = ["process", "signal", "user", "fs"] }
+prost = "0.14"
+prost-types = "0.14"
+rustls = { version = "0.23", default-features = false, features = ["aws_lc_rs", "logging", "std", "tls12"] }
+serde = { version = "1", features = ["derive", "rc"] }
+serde_json = "1.0"
+serde_yaml = "0.9"
+sqlx = { version = "0.9", features = ["runtime-tokio", "postgres"] }
+# `local-offset` is what `OffsetDateTime::now_local()` needs. It used to
+# arrive by feature unification from another crate in the macOS graph,
+# which is why claviron-journal only failed to build on Linux.
+time = { version = "0.3", features = ["serde", "macros", "formatting", "parsing", "local-offset"] }
+tokio = { version = "1", features = ["full"] }
+tonic = { version = "0.14", default-features = false, features = ["codegen", "transport"] }
+tonic-prost = "0.14"
+tonic-prost-build = "0.14"
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter"] }
+x509-parser = "0.18"
+systemd = "0.10"
