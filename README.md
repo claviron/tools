@@ -35,9 +35,6 @@ Small tools stay small:
   through `claviron_acme::AcmeStore`. SeaORM entities and raw schema queries
   do not cross into the CLI.
 
-The former journald viewer is preserved under `retired/crates/journal`; it is
-excluded from the workspace, deployment commands and published packages.
-
 ## Shared library
 
 The root library supplies `init_client_logger` and the optional

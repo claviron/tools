@@ -43,7 +43,6 @@ default-members = [
     "crates/client",
     "crates/hosting",
 ]
-exclude = ["retired/crates/journal"]
 resolver = "3"
 
 [workspace.package]
