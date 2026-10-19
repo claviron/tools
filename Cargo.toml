@@ -10,7 +10,7 @@ description = "Shared utilities for Claviron operator and client tools"
 documentation = "https://docs.rs/claviron-tools"
 keywords = ["claviron", "configuration", "cli"]
 categories = ["development-tools"]
-exclude = [".cargo/**", "AGENTS.md", "scripts/**", "retired/**", "TODO", "rustfmt.toml"]
+include = ["src/**", "Cargo.toml", "README.md", "LICENSE-*"]
 
 [dependencies]
 tracing-subscriber.workspace = true

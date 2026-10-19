@@ -11,6 +11,7 @@ description = "Claviron local certificate generation and inspection tool"
 documentation = "https://docs.rs/claviron-cert"
 keywords = ["tls", "mtls", "certificates", "cli"]
 categories = ["command-line-utilities", "network-programming"]
+include = ["src/**", "Cargo.toml", "README.md", "LICENSE-*"]
 
 [features]
 default = []

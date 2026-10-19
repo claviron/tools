@@ -10,6 +10,7 @@ description = "Claviron ACME account and certificate CLI"
 documentation = "https://docs.rs/claviron-acme-cli"
 keywords = ["acme", "tls", "certificates", "cli"]
 categories = ["command-line-utilities", "network-programming"]
+include = ["src/**", "Cargo.toml", "README.md", "LICENSE-*"]
 
 [dependencies]
 claviron = { workspace = true, features = ["ssl"] }

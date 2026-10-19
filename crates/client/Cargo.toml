@@ -11,6 +11,7 @@ description = "Claviron gRPC control-plane client"
 documentation = "https://docs.rs/claviron-client"
 keywords = ["grpc", "mtls", "claviron", "cli"]
 categories = ["command-line-utilities", "network-programming"]
+include = ["src/**", "proto/*.proto", "build.rs", "Cargo.toml", "README.md", "LICENSE-*"]
 
 [dependencies]
 claviron.workspace = true

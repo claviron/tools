@@ -11,6 +11,7 @@ description = "Claviron hosting DB and certificate management CLI"
 documentation = "https://docs.rs/claviron-hosting-cli"
 keywords = ["tls", "certificates", "database", "cli"]
 categories = ["command-line-utilities", "network-programming"]
+include = ["src/**", "Cargo.toml", "README.md", "LICENSE-*"]
 
 [dependencies]
 claviron = { workspace = true, features = ["hosting", "postgres", "sqlite"] }
