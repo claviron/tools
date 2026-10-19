@@ -2,8 +2,14 @@
 name = "claviron-tools"
 version.workspace = true
 publish.workspace = true
+license.workspace = true
+repository.workspace = true
+homepage.workspace = true
 edition = "2024"
 description = "Shared utilities for Claviron operator and client tools"
+documentation = "https://docs.rs/claviron-tools"
+keywords = ["claviron", "configuration", "cli"]
+categories = ["development-tools"]
 exclude = [".cargo/**", "AGENTS.md", "scripts/**", "retired/**", "TODO", "rustfmt.toml"]
 
 [dependencies]
@@ -42,6 +48,9 @@ resolver = "3"
 
 [workspace.package]
 version = "0.2.0-alpha.17"
+license = "MIT OR Apache-2.0"
+repository = "https://github.com/claviron/tools"
+homepage = "https://github.com/claviron"
 # Releases, including alpha versions, are published to crates.io.
 publish = true
 

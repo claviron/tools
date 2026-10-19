@@ -3,8 +3,14 @@ autotests = false
 name = "claviron-hosting-cli"
 version.workspace = true
 publish.workspace = true
+license.workspace = true
+repository.workspace = true
+homepage.workspace = true
 edition = "2024"
 description = "Claviron hosting DB and certificate management CLI"
+documentation = "https://docs.rs/claviron-hosting-cli"
+keywords = ["tls", "certificates", "database", "cli"]
+categories = ["command-line-utilities", "network-programming"]
 
 [dependencies]
 claviron = { workspace = true, features = ["hosting", "postgres", "sqlite"] }

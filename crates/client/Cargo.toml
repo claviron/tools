@@ -2,9 +2,15 @@
 name = "claviron-client"
 version.workspace = true
 publish.workspace = true
+license.workspace = true
+repository.workspace = true
+homepage.workspace = true
 edition = "2024"
 autotests = false
 description = "Claviron gRPC control-plane client"
+documentation = "https://docs.rs/claviron-client"
+keywords = ["grpc", "mtls", "claviron", "cli"]
+categories = ["command-line-utilities", "network-programming"]
 
 [dependencies]
 claviron.workspace = true

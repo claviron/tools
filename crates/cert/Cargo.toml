@@ -3,8 +3,14 @@ autotests = false
 name = "claviron-cert"
 version.workspace = true
 publish.workspace = true
+license.workspace = true
+repository.workspace = true
+homepage.workspace = true
 edition = "2024"
 description = "Claviron local certificate generation and inspection tool"
+documentation = "https://docs.rs/claviron-cert"
+keywords = ["tls", "mtls", "certificates", "cli"]
+categories = ["command-line-utilities", "network-programming"]
 
 [features]
 default = []
