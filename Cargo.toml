@@ -47,7 +47,7 @@ exclude = ["retired/crates/journal"]
 resolver = "3"
 
 [workspace.package]
-version = "0.2.0-alpha.17"
+version = "0.2.0-alpha.18"
 license = "MIT OR Apache-2.0"
 repository = "https://github.com/claviron/tools"
 homepage = "https://github.com/claviron"
@@ -55,9 +55,9 @@ homepage = "https://github.com/claviron"
 publish = true
 
 [workspace.dependencies]
-claviron-tools = { path = ".", version = "0.2.0-alpha.17", default-features = false }
-claviron = { path = "../claviron", version = "0.2.0-alpha.17", default-features = false }
-claviron-acme = {  path = "../claviron-extra/crates/acme", version = "0.2.0-alpha.17", default-features = false }
+claviron-tools = { path = ".", version = "0.2.0-alpha.18", default-features = false }
+claviron = { path = "../claviron", version = "0.2.0-alpha.18", default-features = false }
+claviron-acme = {  path = "../claviron-extra/crates/acme", version = "0.2.0-alpha.18", default-features = false }
 
 clap = { version = "4.6", features = ["derive", "env"] }
 colored = "3"
