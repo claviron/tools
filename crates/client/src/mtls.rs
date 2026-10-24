@@ -23,9 +23,39 @@ pub struct Identity {
         help = "Use this username as the CN; requires --kind client"
     )]
     user: Option<String>,
+    #[arg(
+        long,
+        value_name = "UUID_OR_URI",
+        help = "Stable client identity in a URI SAN; a UUID becomes urn:uuid:UUID"
+    )]
+    identifier: Option<String>,
 }
 
 impl Identity {
+    pub fn subject_uri(
+        &self,
+        kind: Kind,
+    ) -> Result<Option<String>, Box<dyn std::error::Error>> {
+        self.identifier
+            .as_deref()
+            .map(|value| {
+                if kind != Kind::Client {
+                    return Err("--identifier requires --kind client".into());
+                }
+                let uri = if let Ok(uuid) = value.parse::<uuid::Uuid>() {
+                    if uuid.is_nil() {
+                        return Err("--identifier cannot be a nil UUID".into());
+                    }
+                    format!("urn:uuid:{uuid}")
+                } else {
+                    value.to_owned()
+                };
+                let uri = uri.parse::<claviron::ssl::SubjectUri>()?;
+                Ok(uri.to_string())
+            })
+            .transpose()
+    }
+
     pub fn common_name(
         &self,
         kind: Kind,
@@ -106,10 +136,12 @@ pub async fn create_certificate(
     kind: Kind,
     ca_path_len: Option<u32>,
     issuer: Option<String>,
+    subject_uri: Option<String>,
 ) -> CommandResult {
     if kind == Kind::Ca && ca_path_len.is_none() {
         return Err("--ca-path-len is required for --kind ca".into());
     }
+    let expected_subject = subject_uri.clone();
     let info = MtlsManagerClient::new(channel)
         .create_certificate(mtls::CreateCertificateRequest {
             common_name,
@@ -118,9 +150,11 @@ pub async fn create_certificate(
             kind: mtls::CertificateKind::from(kind) as i32,
             ca_path_len,
             issuer,
+            subject_uri,
         })
         .await?
         .into_inner();
+    confirm_identity(&info, expected_subject.as_deref())?;
     println!("✅ Created certificate from the local CA");
     print_info(&info);
     Ok(())
@@ -143,10 +177,26 @@ pub async fn renew_certificate(
     Ok(())
 }
 
+fn confirm_identity(
+    info: &mtls::CertificateInfo,
+    expected: Option<&str>,
+) -> CommandResult {
+    if let Some(expected) = expected {
+        if info.subject_uris.as_slice() != [expected] {
+            return Err("server did not confirm the requested certificate identifier; the certificate may already exist, inspect it before retrying".into());
+        }
+    }
+    Ok(())
+}
+
 fn print_info(info: &mtls::CertificateInfo) {
     println!("   ID: {}", info.id);
     println!("   Common name: {}", info.common_name);
     println!("   Kind: {}", kind_label(info.kind));
+    for subject in &info.subject_uris {
+        println!("   Subject URI: {subject}");
+    }
+
     if !info.aliases.is_empty() {
         println!("   Also covers: {}", info.aliases.join(", "));
     }

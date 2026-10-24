@@ -101,19 +101,22 @@ automatically. Keep input files containing credentials outside source control.
 
 ## Client certificate identity
 
-Supply a literal CN, or use `--user USERNAME` to put a username in the client
-certificate's CN through the same gRPC issuance API:
+Supply a CN or use `--user USERNAME` as its label. Add `--identifier` for a
+separate stable identity in the certificate's URI SAN. A UUID is encoded as
+`urn:uuid:<uuid>`; an explicit absolute URI may also be supplied.
 
 ```sh
-claviron-client --server example create-certificate operator --kind client --validity-days 30
-claviron-client --server example create-certificate --user operator --kind client --validity-days 30
+claviron-client --server example create-certificate --user operator --kind client --validity-days 30 --identifier 00000000-0000-4000-8000-000000000007
 ```
 
-The alternatives are mutually exclusive. `--user` requires `--kind client`.
-Use the username exposed by the server's user records; the issuing server
-validates the certificate name. Issuance does not grant application access or
-validate user existence. An application-owned AccessPolicy decides how the CN
-maps to a current user and which services that user may access. Its UUID can
-remain database-owned; this option does not add a separate identifier extension.
-The current issuance API accepts DNS, IP and bare certificate names; `--user`
-rejects usernames that cannot be represented without changing that identity.
+CN and `--user` are alternatives; `--user` and `--identifier` require
+`--kind client`. The issuing API validates names and URI text. The client checks
+that the issuance response confirms the requested URI; an older server that
+ignores the field is not reported as success. Such a request may have committed
+a certificate: inspect it before retrying.
+
+The application owns URI namespace semantics, user binding and authorization.
+Issuance alone grants no application permissions. Existing peer-only certificate
+issuance remains available by omitting `--identifier`. Export writes the actual
+signed certificate, including its URI identity, and only writes a private key
+when `--key-out` is explicitly requested.

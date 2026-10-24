@@ -669,6 +669,7 @@ async fn main() -> Result<(), common::CliError> {
     if let Command::CreateCertificate { identity, kind, .. } = &options.command
     {
         identity.common_name(*kind)?;
+        identity.subject_uri(*kind)?;
     }
     let config_path = config::CliConfig::resolve_path(options.config_path);
     tracing::debug!(?config_path);
@@ -765,6 +766,7 @@ async fn main() -> Result<(), common::CliError> {
                 kind,
                 ca_path_len,
                 issuer,
+                identity.subject_uri(kind)?,
             )
             .await?
         }
