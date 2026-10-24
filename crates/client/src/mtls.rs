@@ -8,6 +8,53 @@ use crate::common::{CommandResult, format_timestamp};
 use crate::proto::mtls;
 use crate::proto::mtls::mtls_manager_client::MtlsManagerClient;
 
+/// A literal CN or a username used as the client certificate's CN.
+#[derive(Debug, clap::Args)]
+pub struct Identity {
+    #[arg(
+        value_name = "CN",
+        required_unless_present = "user",
+        conflicts_with = "user"
+    )]
+    common_name: Option<String>,
+    #[arg(
+        long,
+        value_name = "USERNAME",
+        help = "Use this username as the CN; requires --kind client"
+    )]
+    user: Option<String>,
+}
+
+impl Identity {
+    pub fn common_name(
+        &self,
+        kind: Kind,
+    ) -> Result<String, Box<dyn std::error::Error>> {
+        match (&self.common_name, &self.user) {
+            (Some(name), None) => Ok(name.clone()),
+            (None, Some(user)) if kind == Kind::Client => {
+                if user.is_empty()
+                    || user.trim() != user
+                    || user.chars().any(char::is_control)
+                {
+                    return Err("--user must be a nonempty username without surrounding whitespace or control characters".into());
+                }
+                let name = user.parse::<claviron::ssl::Host>().map_err(|_| {
+                    "the issuing API requires a DNS, IP or bare certificate name for --user"
+                })?;
+                if user.starts_with("*.")
+                    || !name.to_string().eq_ignore_ascii_case(user)
+                {
+                    return Err("--user must be preserved by the issuing API's certificate-name normalization".into());
+                }
+                Ok(user.clone())
+            }
+            (None, Some(_)) => Err("--user requires --kind client".into()),
+            _ => Err("supply either a CN or --user USERNAME".into()),
+        }
+    }
+}
+
 /// What a local-CA certificate is for, as the operator names it.
 #[derive(Clone, Copy, Debug, Eq, PartialEq, clap::ValueEnum)]
 pub enum Kind {
@@ -126,27 +173,5 @@ fn kind_label(raw: i32) -> String {
 }
 
 #[cfg(test)]
-mod tests {
-    use super::{Kind, kind_label};
-    use crate::proto::mtls::CertificateKind;
-
-    #[test]
-    fn operator_kinds_map_to_protocol_kinds() {
-        assert_eq!(
-            CertificateKind::from(Kind::Server),
-            CertificateKind::Server
-        );
-        assert_eq!(
-            CertificateKind::from(Kind::Client),
-            CertificateKind::Client
-        );
-        assert_eq!(CertificateKind::from(Kind::Ca), CertificateKind::Ca);
-    }
-
-    #[test]
-    fn unknown_kinds_stay_visible() {
-        assert_eq!(kind_label(CertificateKind::Client as i32), "client");
-        assert_eq!(kind_label(0), "not reported");
-        assert_eq!(kind_label(42), "unknown (42)");
-    }
-}
+#[path = "../tests/mtls.rs"]
+mod tests;

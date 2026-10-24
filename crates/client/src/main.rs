@@ -19,6 +19,7 @@ mod proto;
 mod server;
 mod service;
 mod task;
+mod users;
 mod worker;
 
 use client::create_monitored_channel;
@@ -170,6 +171,11 @@ pub struct Options {
 
 #[derive(Debug, Parser)]
 pub enum Command {
+    /// Discover, query and manage the server's exposed users
+    Users {
+        #[command(subcommand)]
+        command: users::Command,
+    },
     /// Manage authoritative DNS domains and records
     Dns {
         #[command(subcommand)]
@@ -282,8 +288,8 @@ pub enum Command {
 
     /// Create a certificate from the server's local CA (not ACME)
     CreateCertificate {
-        #[arg(help = "Identity: DNS name, IP or bare name")]
-        common_name: String,
+        #[command(flatten)]
+        identity: mtls::Identity,
         #[arg(
             long,
             value_enum,
@@ -660,6 +666,10 @@ async fn main() -> Result<(), common::CliError> {
     init_client_logger();
 
     let options = Options::parse();
+    if let Command::CreateCertificate { identity, kind, .. } = &options.command
+    {
+        identity.common_name(*kind)?;
+    }
     let config_path = config::CliConfig::resolve_path(options.config_path);
     tracing::debug!(?config_path);
 
@@ -676,6 +686,7 @@ async fn main() -> Result<(), common::CliError> {
     tracing::debug!(server_address = %config.grpc.server_addr);
 
     match options.command {
+        Command::Users { command } => users::run(channel, command).await?,
         Command::Dns { command } => dns::run(channel, command).await?,
         Command::Domain { command } => domain::run(channel, command).await?,
         Command::ListProfiles => unreachable!("handled before connecting"),
@@ -739,7 +750,7 @@ async fn main() -> Result<(), common::CliError> {
             .await?
         }
         Command::CreateCertificate {
-            common_name,
+            identity,
             kind,
             validity_days,
             aliases,
@@ -748,7 +759,7 @@ async fn main() -> Result<(), common::CliError> {
         } => {
             mtls::create_certificate(
                 channel,
-                common_name,
+                identity.common_name(kind)?,
                 aliases,
                 validity_days,
                 kind,

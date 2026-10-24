@@ -57,6 +57,7 @@ profile's TLS credentials.
 | Embedded applications | `list-applications`, `application-status`, `start-application`, `stop-application`, `restart-application` |
 | Orbit-linked applications | `list-linked-applications`, `linked-application-status`, `start-linked-application`, `stop-linked-application`, `restart-linked-application`, `send-linked-command` |
 | Tasks | `list-tasks`, `task-status`, `start-task`, `stop-task`, `reload-task`, `restart-task`, `run-task` |
+| Users | `users schema`, `users list`, `users get`, `users create`, `users update`, `users delete` |
 | Certificates | `list-certificates`, `list-certificate-inventory`, `get-certificate`, `add-certificate`, `renew-certificate`, `renew-local-certificate`, `create-root-ca`, `create-certificate`, `activate-certificate`, `disable-certificate`, `remove-certificate`, `import-certificate`, `export-certificate`, `reload-resolver` |
 | Hosting | `list-hosting`, `list-aliases`, `add-alias`, `remove-alias`, `replace-alias`, `reload-vhosts`, `list-certificates-by-server`, `add-vhost-to-servers`, `remove-vhost-from-servers`, `list-vhosts-by-server`, `list-servers-by-vhost` |
 | DNS and domains | `dns`, `domain` subcommands |
@@ -75,3 +76,44 @@ Task start/stop commands wait for the expected fleet placements to report their
 state, not just command acceptance. `run-task` waits for the run result, using
 its configured execution timeout unless `--timeout` overrides it. Worker
 additions remain within the server's configured fleet capacity.
+
+## Users
+
+The server supplies the user schema, editable forms and management scope.
+Commands print JSON, including opaque user references, record revisions and
+page cursors. A missing server capability returns its gRPC refusal; the client
+never falls back to a database or another identity.
+
+```sh
+claviron-client --server example users schema
+claviron-client --server example users list --page-size 20 --query operator
+claviron-client --server example users get USER_REFERENCE
+claviron-client --server example users create --schema-revision SCHEMA_REVISION --data create.json
+claviron-client --server example users update USER_REFERENCE --revision RECORD_REVISION --schema-revision SCHEMA_REVISION --data changes.json
+claviron-client --server example users delete USER_REFERENCE --revision RECORD_REVISION
+```
+
+`list` reads one page; use `--cursor` with the returned `next_cursor` to continue
+with the same query. Create/update input files contain one JSON object matching
+the server's form. Updates replace only named top-level fields. Validation
+failures exit unsuccessfully; revisions are never refreshed or retried
+automatically. Keep input files containing credentials outside source control.
+
+## Client certificate identity
+
+Supply a literal CN, or use `--user USERNAME` to put a username in the client
+certificate's CN through the same gRPC issuance API:
+
+```sh
+claviron-client --server example create-certificate operator --kind client --validity-days 30
+claviron-client --server example create-certificate --user operator --kind client --validity-days 30
+```
+
+The alternatives are mutually exclusive. `--user` requires `--kind client`.
+Use the username exposed by the server's user records; the issuing server
+validates the certificate name. Issuance does not grant application access or
+validate user existence. An application-owned AccessPolicy decides how the CN
+maps to a current user and which services that user may access. Its UUID can
+remain database-owned; this option does not add a separate identifier extension.
+The current issuance API accepts DNS, IP and bare certificate names; `--user`
+rejects usernames that cannot be represented without changing that identity.

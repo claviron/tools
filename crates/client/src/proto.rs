@@ -30,6 +30,14 @@ pub mod mtls {
     include!(concat!(env!("OUT_DIR"), "/claviron.mtls.rs"));
 }
 
+pub mod management {
+    include!(concat!(env!("OUT_DIR"), "/claviron.management.rs"));
+}
+
+pub mod users {
+    include!(concat!(env!("OUT_DIR"), "/claviron.users.rs"));
+}
+
 pub mod helloworld {
     include!(concat!(env!("OUT_DIR"), "/claviron.helloworld.rs"));
 }
