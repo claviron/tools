@@ -189,6 +189,24 @@ fn confirm_identity(
     Ok(())
 }
 
+pub async fn revoke_certificate(
+    channel: Channel,
+    common_name: String,
+) -> CommandResult {
+    let info = MtlsManagerClient::new(channel)
+        .revoke_certificate(mtls::RevokeCertificateRequest { common_name })
+        .await?
+        .into_inner();
+    if info.revoked_at.is_none() {
+        return Err("server did not confirm certificate revocation; inspect the record before retrying".into());
+    }
+    println!(
+        "✅ Certificate revocation committed; existing connections remain open"
+    );
+    print_info(&info);
+    Ok(())
+}
+
 fn print_info(info: &mtls::CertificateInfo) {
     println!("   ID: {}", info.id);
     println!("   Common name: {}", info.common_name);
@@ -207,6 +225,9 @@ fn print_info(info: &mtls::CertificateInfo) {
     println!("   Issued: {}", format_timestamp(info.issued_at));
     println!("   Expires: {}", format_timestamp(info.expires_at));
     println!("   Enabled: {}", if info.enabled { "yes" } else { "no" });
+    if let Some(revoked_at) = info.revoked_at {
+        println!("   Revoked: {}", format_timestamp(Some(revoked_at)));
+    }
     println!(
         "   Material stays in the hosting database; it is not returned here."
     );

@@ -147,6 +147,9 @@ pub async fn get_certificate(
     println!("   Issued: {}", format_timestamp(certificate.issued_at));
     println!("   Expires: {}", format_timestamp(certificate.expires_at));
     println!("   Updated: {}", format_timestamp(certificate.updated_at));
+    if let Some(revoked_at) = certificate.revoked_at {
+        println!("   Revoked: {}", format_timestamp(Some(revoked_at)));
+    }
     if !certificate.aliases.is_empty() {
         println!("   Aliases: {}", certificate.aliases.join(", "));
     }
@@ -154,7 +157,13 @@ pub async fn get_certificate(
 }
 
 fn certificate_summary(certificate: &acme::CertificateResponse) -> String {
-    let status = if certificate.enabled { "✅" } else { "❌" };
+    let status = if certificate.revoked_at.is_some() {
+        "⚠️ Revoked"
+    } else if certificate.enabled {
+        "✅"
+    } else {
+        "❌"
+    };
     format!(
         "{} ID: {} | CN: {} | Aliases: {} | Issued: {} | Expires: {} | Updated: {}",
         status,
@@ -314,6 +323,8 @@ mod tests {
             enabled: false,
             updated_at: None,
             fullchain_pem: String::new(),
+            kind: 0,
+            revoked_at: None,
         });
 
         assert!(

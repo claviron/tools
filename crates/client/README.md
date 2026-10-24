@@ -49,6 +49,12 @@ profile's TLS credentials.
 
 ## Commands
 
+`revoke-certificate <CN>` permanently revokes a locally issued client or server
+certificate in the server's hosting database. The first revocation date is
+retained; enabling or renewing the record cannot undo it. Inventory and detail
+commands report revocation separately from enabled state. Snapshot refreshes
+apply it to new TLS handshakes; existing connections remain open.
+
 | Area | Commands |
 | --- | --- |
 | Server | `info`, `reload`, `shutdown` |

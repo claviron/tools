@@ -26,11 +26,12 @@ dotenvy.workspace = true
 nix.workspace = true
 dirs.workspace = true
 serde.workspace = true
+time.workspace = true
+tempfile = "3"
 tokio = { workspace = true, optional = true }
 
 [dev-dependencies]
 serde_yaml.workspace = true
-tempfile = "3"
 
 [[bin]]
 name = "claviron-cert"

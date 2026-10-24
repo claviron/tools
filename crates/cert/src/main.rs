@@ -19,6 +19,7 @@ use claviron_tools::init_client_logger;
 use dotenvy::dotenv_override;
 
 mod issuer;
+mod revoke;
 use issuer::read_issuer_materials;
 
 #[derive(Debug, Parser)]
@@ -53,6 +54,14 @@ pub struct Options {
 
 #[derive(Debug, Parser)]
 pub enum Command {
+    /// Permanently revoke a local certificate and update the signed CRL file
+    Revoke {
+        /// Certificate name in the configured store
+        name: String,
+        /// Issuer name; omitted to resolve the certificate's signing CA
+        #[arg(long)]
+        issuer: Option<String>,
+    },
     /// Create a new mTLS server certificate
     #[command(aliases = ["Server","ServerCert"])]
     Server {
@@ -588,9 +597,12 @@ fn main() -> claviron::Result<()> {
             read_issuer_materials(&certstore, &None, &options)
                 .map_err(|e| claviron::Error::Cli(e.to_string()))?,
         ),
-        Command::Ca { .. } => None,
+        Command::Ca { .. } | Command::Revoke { .. } => None,
     };
     match options.command {
+        Command::Revoke { name, issuer } => {
+            revoke::run(&certstore, &name, issuer)
+        }
         Command::Server { hosts, basename, issuer, days, user, group } => {
             let aliases = Aliases::from(hosts);
             let owner = resolve_file_owner(&user, &group)

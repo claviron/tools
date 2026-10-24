@@ -27,6 +27,7 @@ certificates are kept. Keep private keys outside your source repository.
 | `intermediate <CNAME> --basename <NAME>` | Issue an intermediate CA. |
 | `server --hosts <HOST>` | Issue a server certificate; repeat `--hosts` for additional names. |
 | `client <CNAME>` | Issue an mTLS client certificate. |
+| `revoke <NAME>` | Revoke a local client/server certificate and update the signed CRL. |
 
 For example, with a configured certificate store and issuer:
 
@@ -38,6 +39,16 @@ claviron-cert --config ./certstore.yaml client example-client
 `--issuer` selects an intermediate issuer for server/client certificates.
 `--days` sets certificate validity; `--user` and `--group` select ownership of
 generated server/client key files.
+
+`revoke` finds the named certificate in the configured store and fails if it is
+absent or ambiguous. It resolves the signing CA from the certificate's issuer
+or `--issuer`, and requires that CA's local signing key. The signed CRL is
+written to `crl_path`, or `revocations.crl` under the store directory when
+omitted. Previous entries and other issuers' CRLs are retained. Its `nextUpdate`
+is the signing CA's certificate expiry; revocation itself has no expiry or undo.
+Reload the consuming certificate source to publish the new file. This command
+does not modify hosting records; use `claviron-client revoke-certificate <CN>`
+for database-backed management.
 
 ```sh
 claviron-cert --help

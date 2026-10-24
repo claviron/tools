@@ -262,6 +262,9 @@ pub enum Command {
         validity_days: u32,
     },
 
+    /// Permanently revoke a local certificate in the server's hosting database
+    RevokeCertificate { common_name: String },
+
     /// Activate a certificate
     ActivateCertificate { cn: String },
 
@@ -724,6 +727,9 @@ async fn main() -> Result<(), common::CliError> {
         }
         Command::RenewLocalCertificate { common_name, validity_days } => {
             mtls::renew_certificate(channel, common_name, validity_days).await?
+        }
+        Command::RevokeCertificate { common_name } => {
+            mtls::revoke_certificate(channel, common_name).await?
         }
         Command::ActivateCertificate { cn } => {
             acme::activate_certificate(channel, cn).await?
