@@ -49,11 +49,13 @@ profile's TLS credentials.
 
 ## Commands
 
-`revoke-certificate <CN>` permanently revokes a locally issued client or server
-certificate in the server's hosting database. The first revocation date is
-retained; enabling or renewing the record cannot undo it. Inventory and detail
-commands report revocation separately from enabled state. Snapshot refreshes
-apply it to new TLS handshakes; existing connections remain open.
+`revoke-certificate <CN>` revokes any stored certificate in the server's
+hosting database, regardless of issuer, and sets `enabled=false`. The first
+revocation date is retained; enabling or renewing the record cannot undo it. Inventory and detail
+commands report revocation separately from enabled state. Client-auth snapshots
+apply revoked client certificates to new TLS handshakes; disabled server certificates are removed from the SNI resolver.
+Existing connections remain open. This local decision does not request
+revocation from an external ACME authority.
 
 | Area | Commands |
 | --- | --- |

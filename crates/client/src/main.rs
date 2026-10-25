@@ -263,7 +263,7 @@ pub enum Command {
         validity_days: u32,
     },
 
-    /// Permanently revoke a local certificate in the server's hosting database
+    /// Revoke any stored certificate and disable it in the server's hosting database
     RevokeCertificate { common_name: String },
 
     /// Activate a certificate

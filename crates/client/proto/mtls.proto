@@ -3,13 +3,14 @@ package claviron.mtls;
 
 import "google/protobuf/timestamp.proto";
 
-// Local-CA issuance and revocation, independent of ACME. Material stays in hosting
+// Local-CA issuance and stored-certificate revocation. Material stays in hosting
 // database only; clients extract it separately when needed.
 service MtlsManager {
   rpc CreateRootCa(CreateRootCaRequest) returns (CertificateInfo);
   rpc CreateCertificate(CreateCertificateRequest) returns (CertificateInfo);
   rpc RenewCertificate(RenewCertificateRequest) returns (CertificateInfo);
-  // Permanently revoke a locally issued client/server certificate in hosting.
+  // Revoke any stored certificate locally and set enabled=false, regardless of issuer.
+  // This does not request revocation from an external ACME authority.
   // Repeated calls preserve the first revocation time. Existing sessions remain open.
   rpc RevokeCertificate(RevokeCertificateRequest) returns (CertificateInfo);
 }
