@@ -57,7 +57,7 @@ apply it to new TLS handshakes; existing connections remain open.
 
 | Area | Commands |
 | --- | --- |
-| Server | `info`, `reload`, `shutdown` |
+| Server | `info`, `metrics`, `reload`, `shutdown` |
 | Workers | `list-workers`, `worker-status`, `start-worker`, `stop-worker`, `reload-worker`, `restart-worker`, `reload-workers`, `restart-workers`, `add-worker`, `remove-worker` |
 | Services | `list-services`, `service-status`, `start-service`, `stop-service`, `reload-service`, `restart-service` |
 | Embedded applications | `list-applications`, `application-status`, `start-application`, `stop-application`, `restart-application` |
@@ -82,6 +82,20 @@ Task start/stop commands wait for the expected fleet placements to report their
 state, not just command acceptance. `run-task` waits for the run result, using
 its configured execution timeout unless `--timeout` overrides it. Worker
 additions remain within the server's configured fleet capacity.
+
+## Metrics
+
+`metrics` sends HTTP `GET /metrics` over the selected server's HTTP/2 connection,
+using the same TLS credentials as management commands. It prints Prometheus text
+directly to stdout, so the output can be redirected without a JSON wrapper.
+The server must expose the endpoint through `claviron-grpc`'s `metrics` feature;
+its mTLS and application admission policy still apply. HTTP failures and gRPC
+admission refusals return an error, including refusals carried with HTTP 200.
+
+```sh
+claviron-client --server example metrics
+claviron-client --server example metrics > metrics.prom
+```
 
 ## Users
 

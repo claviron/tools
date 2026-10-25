@@ -14,6 +14,7 @@ mod common;
 mod dns;
 mod domain;
 mod linked;
+mod metrics;
 mod mtls;
 mod proto;
 mod server;
@@ -394,6 +395,9 @@ pub enum Command {
 
     /// Show server identity, responding process, worker counts and capabilities
     Info,
+
+    /// Print Prometheus metrics from the selected server's /metrics endpoint
+    Metrics,
 
     /// Reload the complete server process family through the master
     Reload,
@@ -814,6 +818,7 @@ async fn main() -> Result<(), common::CliError> {
         Command::ReloadVhosts => aliases::reload_vhosts(channel).await?,
         Command::Reload => server::reload(channel).await?,
         Command::Info => server::info(channel).await?,
+        Command::Metrics => metrics::show(channel).await?,
         Command::Shutdown => {
             server::shutdown(channel, connection_monitor).await?
         }
