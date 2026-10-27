@@ -14,7 +14,7 @@ categories = ["command-line-utilities", "network-programming"]
 include = ["src/**", "proto/*.proto", "build.rs", "Cargo.toml", "README.md", "LICENSE-*"]
 
 [dependencies]
-claviron.workspace = true
+claviron = { workspace = true, features = ["ssl"] }
 claviron-tools = { workspace = true, features = ["config"] }
 clap.workspace = true
 dotenvy.workspace = true
