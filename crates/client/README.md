@@ -8,7 +8,7 @@ enabled by the target server.
 ## Install
 
 ```sh
-cargo install claviron-client --version 0.2.0-alpha.18 --locked --registry crates-io
+cargo install claviron-client --version 0.2.0-alpha.23 --locked --registry crates-io
 ```
 
 Installation requires a Rust toolchain, native build tools and Protocol Buffers'
