@@ -8,7 +8,7 @@ For remote certificate operations on a running server, use
 ## Install
 
 ```sh
-cargo install claviron-acme-cli --version 0.2.0-alpha.23 --locked --registry crates-io
+cargo install claviron-acme-cli --version 0.2.0-alpha.24 --locked --registry crates-io
 ```
 
 Installation requires a Rust toolchain and native build tools. Put Cargo's
