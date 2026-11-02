@@ -19,18 +19,28 @@ hosting = ["claviron/hosting", "claviron/postgres", "claviron-tools/db", "dep:to
 sqlite = ["hosting", "claviron/sqlite", "claviron-tools/sqlite"]
 
 [dependencies]
+
+# ── Claviron packages ────────────────────────────────────────────────
 claviron = { workspace = true, features = ["ssl"] }
 claviron-tools.workspace = true
-clap.workspace = true
+
+# ── Async runtime & primitives ───────────────────────────────────────
+tokio = { workspace = true, optional = true, features = ["rt"] }
+
+# ── CLI & environment ────────────────────────────────────────────────
+clap = { workspace = true, features = ["derive", "env"] }
 dotenvy.workspace = true
-nix.workspace = true
-dirs.workspace = true
-serde.workspace = true
+
+# ── System & filesystem ──────────────────────────────────────────────
+nix = { workspace = true, features = ["fs", "user"] }
+tempfile.workspace = true
+
+# ── Time & identifiers ───────────────────────────────────────────────
 time.workspace = true
-tempfile = "3"
-tokio = { workspace = true, optional = true }
 
 [dev-dependencies]
+
+# ── Serialization & parsing ──────────────────────────────────────────
 serde_yaml.workspace = true
 
 [[bin]]

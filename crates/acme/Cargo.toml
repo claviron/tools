@@ -13,16 +13,26 @@ categories = ["command-line-utilities", "network-programming"]
 include = ["src/**", "Cargo.toml", "README.md", "LICENSE-*"]
 
 [dependencies]
+
+# ── Claviron packages ────────────────────────────────────────────────
 claviron = { workspace = true, features = ["ssl"] }
 claviron-acme.workspace = true
 claviron-tools = { workspace = true, features = ["acme"] }
-clap.workspace = true
+
+# ── Async runtime & primitives ───────────────────────────────────────
+tokio = { workspace = true, features = ["macros", "rt-multi-thread"] }
+
+# ── CLI & environment ────────────────────────────────────────────────
+clap = { workspace = true, features = ["derive", "env"] }
 colored.workspace = true
 dotenvy.workspace = true
-humantime.workspace = true
+
+# ── Serialization & parsing ──────────────────────────────────────────
 serde_json.workspace = true
+
+# ── Time & identifiers ───────────────────────────────────────────────
+humantime.workspace = true
 time.workspace = true
-tokio.workspace = true
 
 [[bin]]
 name = "claviron-acme"

@@ -13,20 +13,32 @@ categories = ["development-tools"]
 include = ["src/**", "Cargo.toml", "README.md", "LICENSE-*"]
 
 [dependencies]
-tracing-subscriber.workspace = true
+
+# ── Claviron packages ────────────────────────────────────────────────
 claviron = { workspace = true, optional = true }
 claviron-acme = { workspace = true, optional = true }
-dirs = { workspace = true, optional = true }
-serde = { workspace = true, optional = true }
+
+# ── Async runtime & primitives ───────────────────────────────────────
+tokio = { workspace = true, optional = true, features = ["fs"] }
+
+# ── Serialization & parsing ──────────────────────────────────────────
+serde = { workspace = true, optional = true, features = ["derive"] }
 serde_yaml = { workspace = true, optional = true }
-sqlx = { workspace = true, optional = true }
-tokio = { workspace = true, optional = true }
+
+# ── Database backends ────────────────────────────────────────────────
+sqlx = { workspace = true, optional = true, features = ["postgres", "runtime-tokio"] }
+
+# ── System & filesystem ──────────────────────────────────────────────
+dirs = { workspace = true, optional = true }
+
+# ── Logging & diagnostics ────────────────────────────────────────────
+tracing-subscriber = { workspace = true, features = ["env-filter"] }
 
 [features]
 default = []
 config = ["dep:claviron", "dep:dirs", "dep:serde", "dep:serde_yaml", "dep:tokio"]
 acme = ["config", "dep:claviron-acme"]
-db = ["config", "dep:sqlx"]
+db = ["config", "dep:sqlx", "tokio/time"]
 sqlite = ["db", "sqlx/sqlite"]
 
 [workspace]
@@ -46,7 +58,7 @@ default-members = [
 resolver = "3"
 
 [workspace.package]
-version = "0.2.0-alpha.24"
+version = "0.2.0-alpha.24.1"
 license = "MIT OR Apache-2.0"
 repository = "https://github.com/claviron/tools"
 homepage = "https://github.com/claviron"
@@ -54,32 +66,66 @@ homepage = "https://github.com/claviron"
 publish = true
 
 [workspace.dependencies]
-claviron-tools = { path = ".", version = "0.2.0-alpha.24", default-features = false }
-claviron = { path = "../claviron", version = "0.2.0-alpha.23", default-features = false }
-claviron-acme = {  path = "../extra/crates/acme", version = "0.2.0-alpha.23", default-features = false }
 
-clap = { version = "4.6", features = ["derive", "env"] }
+# ── Workspace crates ─────────────────────────────────────────────────
+claviron-tools = { path = ".", version = "0.2.0-alpha.24.1", default-features = false }
+
+# ── Claviron packages ────────────────────────────────────────────────
+claviron = { version = "0.2.0-alpha.24", default-features = false }
+claviron-acme = { version = "0.2.0-alpha.24", default-features = false }
+
+# ── Async runtime & primitives ───────────────────────────────────────
+tokio = "1"
+
+# ── CLI & environment ────────────────────────────────────────────────
+clap = "4.6"
 colored = "3"
-dirs = "7.0"
+dialoguer = "0.12"
 dotenvy = "0.15"
-humantime = "2.3"
-hyper = { version = "1.11", features = ["client", "http2"] }
-hyper-rustls = { version = "0.27", default-features = false, features = ["http2", "logging", "tls12", "aws-lc-rs"] }
-hyper-util = { version = "0.1", features = ["client-legacy", "http1", "tokio"] }
-nix = { version = "0.31", features = ["process", "signal", "user", "fs"] }
-prost = "0.14"
-prost-types = "0.14"
-rustls = { version = "0.23", default-features = false, features = ["aws_lc_rs", "logging", "std", "tls12"] }
-serde = { version = "1", features = ["derive", "rc"] }
+
+# ── Serialization & parsing ──────────────────────────────────────────
+serde = "1"
 serde_json = "1.0"
 serde_yaml = "0.9"
-sqlx = { version = "0.9", features = ["runtime-tokio", "postgres"] }
-time = { version = "0.3", features = ["serde", "macros", "formatting", "parsing", "local-offset"] }
-tokio = { version = "1", features = ["full"] }
-tonic = { version = "0.14", default-features = false, features = ["codegen", "transport"] }
+
+# ── HTTP core ────────────────────────────────────────────────────────
+hyper = "1.11"
+hyper-util = "0.1"
+
+# ── gRPC & Protobuf ──────────────────────────────────────────────────
+prost = "0.14"
+prost-types = "0.14"
+tonic = { version = "0.14", default-features = false }
 tonic-prost = "0.14"
-tonic-prost-build = "0.14"
-tracing = "0.1"
-tracing-subscriber = { version = "0.3", features = ["env-filter"] }
+tonic-prost-build = { version = "0.14", default-features = false }
+
+# ── TLS & certificates ───────────────────────────────────────────────
+hyper-rustls = { version = "0.27", default-features = false }
+rcgen = { version = "0.14", default-features = false }
+rustls = { version = "0.23", default-features = false }
 x509-parser = "0.18"
+
+# ── Cryptography & encoding ──────────────────────────────────────────
+base64 = "0.23.1"
+p256 = { version = "0.14.0", default-features = false }
+rsa = { version = "0.9", default-features = false }
+
+# ── Database backends ────────────────────────────────────────────────
+sqlx = { version = "0.9", default-features = false }
+
+# ── System & filesystem ──────────────────────────────────────────────
+dirs = "7.0"
+nix = "0.31"
+tempfile = "3"
+
+# ── Networking utilities ─────────────────────────────────────────────
+url = "2"
+
+# ── Time & identifiers ───────────────────────────────────────────────
+humantime = "2.3"
+time = "0.3"
 uuid = "1"
+
+# ── Logging & diagnostics ────────────────────────────────────────────
+tracing = "0.1"
+tracing-subscriber = "0.3"

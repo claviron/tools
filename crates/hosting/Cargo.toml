@@ -14,30 +14,52 @@ categories = ["command-line-utilities", "network-programming"]
 include = ["src/**", "Cargo.toml", "README.md", "LICENSE-*"]
 
 [dependencies]
+
+# ── Claviron packages ────────────────────────────────────────────────
 claviron = { workspace = true, features = ["hosting", "postgres", "sqlite"] }
-claviron-tools = { workspace = true, features = ["acme", "db", "sqlite"] }
 claviron-acme = { workspace = true, features = ["postgres", "sqlite"] }
-clap.workspace = true
+claviron-tools = { workspace = true, features = ["acme", "db", "sqlite"] }
+
+# ── Async runtime & primitives ───────────────────────────────────────
+tokio = { workspace = true, features = ["fs", "macros", "rt-multi-thread"] }
+
+# ── CLI & environment ────────────────────────────────────────────────
+clap = { workspace = true, features = ["derive", "env"] }
 colored.workspace = true
-dialoguer = "0.12"
+dialoguer.workspace = true
 dotenvy.workspace = true
-rustls.workspace = true
-serde.workspace = true
+
+# ── Serialization & parsing ──────────────────────────────────────────
+serde = { workspace = true, features = ["derive"] }
 serde_json.workspace = true
 serde_yaml.workspace = true
-time.workspace = true
-tokio.workspace = true
-tracing.workspace = true
+
+# ── TLS & certificates ───────────────────────────────────────────────
+rcgen = { workspace = true, features = ["aws_lc_rs", "pem"] }
+rustls = { workspace = true, features = ["std"] }
 x509-parser.workspace = true
-base64 = "0.22"
-rsa = { version = "0.9", features = ["pem"] }
-p256 = { version = "0.13", features = ["pem", "pkcs8"] }
-rcgen = { version = "0.14", default-features = false, features = ["aws_lc_rs", "pem"] }
-url = "2"
+
+# ── Cryptography & encoding ──────────────────────────────────────────
+base64.workspace = true
+p256 = { workspace = true, features = ["arithmetic", "pem", "pkcs8"] }
+rsa = { workspace = true, features = ["pem", "u64_digit"] }
+
+# ── Networking utilities ─────────────────────────────────────────────
+url.workspace = true
+
+# ── Time & identifiers ───────────────────────────────────────────────
+time.workspace = true
+
+# ── Logging & diagnostics ────────────────────────────────────────────
+tracing.workspace = true
 
 [dev-dependencies]
-tempfile = "3"
-sqlx = { workspace = true, features = ["sqlite"] }
+
+# ── Database backends ────────────────────────────────────────────────
+sqlx = { workspace = true, features = ["runtime-tokio", "sqlite"] }
+
+# ── System & filesystem ──────────────────────────────────────────────
+tempfile.workspace = true
 
 [[bin]]
 name = "claviron-hosting"
