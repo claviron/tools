@@ -22,8 +22,8 @@ fn rsa_jwk_conversion_preserves_private_key() {
 
 fn ec_jwk() -> Value {
     let key = p256::SecretKey::from_slice(&[7; 32]).unwrap();
-    use p256::elliptic_curve::sec1::ToEncodedPoint;
-    let point = key.public_key().to_encoded_point(false);
+    use p256::elliptic_curve::sec1::ToSec1Point;
+    let point = key.public_key().to_sec1_point(false);
     serde_json::json!({"kty":"EC", "crv":"P-256", "d":URL_SAFE_NO_PAD.encode(key.to_bytes()),
         "x":URL_SAFE_NO_PAD.encode(point.x().unwrap()), "y":URL_SAFE_NO_PAD.encode(point.y().unwrap())})
 }

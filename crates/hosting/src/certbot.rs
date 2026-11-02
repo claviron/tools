@@ -96,8 +96,9 @@ fn account_key(value: &Value) -> Result<(String, Value, Algorithm)> {
         "EC" if field(value, "crv")? == "P-256" => {
             let key = p256::SecretKey::from_slice(&bytes("d")?)
                 .map_err(|_| "invalid EC account key".to_owned())?;
-            use p256::elliptic_curve::sec1::ToEncodedPoint;
-            let point = key.public_key().to_encoded_point(false);
+            use p256::elliptic_curve::sec1::ToSec1Point;
+            use p256::pkcs8::EncodePrivateKey as _;
+            let point = key.public_key().to_sec1_point(false);
             let x = URL_SAFE_NO_PAD.encode(point.x().ok_or("missing EC x")?);
             let y = URL_SAFE_NO_PAD.encode(point.y().ok_or("missing EC y")?);
             if x != field(value, "x")? || y != field(value, "y")? {
@@ -106,7 +107,7 @@ fn account_key(value: &Value) -> Result<(String, Value, Algorithm)> {
             let public =
                 serde_json::json!({"kty":"EC", "crv":"P-256", "x":x, "y":y});
             let pem = key
-                .to_pkcs8_pem(LineEnding::LF)
+                .to_pkcs8_pem(p256::pkcs8::LineEnding::LF)
                 .map_err(|_| "cannot encode EC account key".to_owned())?;
             Ok((pem.to_string(), public, Algorithm::ES256))
         }

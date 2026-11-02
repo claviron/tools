@@ -20,7 +20,8 @@ CREATE TABLE hosting_certificate_issuers (
 CREATE TABLE hosting_certificates (
  id INTEGER PRIMARY KEY, kind TEXT NOT NULL, issuer_id INTEGER REFERENCES hosting_certificate_issuers(id),
  cn TEXT NOT NULL UNIQUE, certs_der BLOB NOT NULL, key_der BLOB NOT NULL,
- expires_at TEXT NOT NULL, issued_at TEXT NOT NULL, updated_at TEXT, enabled INTEGER NOT NULL
+ expires_at TEXT NOT NULL, issued_at TEXT NOT NULL, updated_at TEXT, revoked_at TEXT,
+ enabled INTEGER NOT NULL
 );
 CREATE TABLE hosting_cert_aliases (
  id INTEGER PRIMARY KEY, cert_id INTEGER NOT NULL, hostname TEXT NOT NULL,

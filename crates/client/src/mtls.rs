@@ -181,10 +181,10 @@ fn confirm_identity(
     info: &mtls::CertificateInfo,
     expected: Option<&str>,
 ) -> CommandResult {
-    if let Some(expected) = expected {
-        if info.subject_uris.as_slice() != [expected] {
-            return Err("server did not confirm the requested certificate identifier; the certificate may already exist, inspect it before retrying".into());
-        }
+    if let Some(expected) = expected
+        && info.subject_uris.as_slice() != [expected]
+    {
+        return Err("server did not confirm the requested certificate identifier; the certificate may already exist, inspect it before retrying".into());
     }
     Ok(())
 }
