@@ -1,23 +1,29 @@
 //! File-first issuer selection, with opt-in hosting CN resolution.
 use std::path::PathBuf;
 
-use claviron::ssl::SSLError;
 use claviron::ssl::certstore::{CA_KEY_FILENAME, CertStore, CertificateSource};
+use claviron::ssl::generators::{KeyPair, read_private_key_from_pem};
+use claviron::ssl::parsers::concat_chain_bytes_from_pem;
+use claviron::ssl::{Basename, CommonName, SSLError};
+
+pub(crate) struct SigningMaterial {
+    pub certificates: Vec<u8>,
+    pub key: KeyPair,
+}
 
 /// Return certificate first, private key second. DB identities are managed by
 /// the hosting/control-plane tools, never silently converted to local paths.
 pub(crate) fn resolve_issuer_paths(
     store: &CertStore,
-    issuer: &Option<String>,
+    issuer: Option<Basename>,
 ) -> Result<(PathBuf, PathBuf), SSLError> {
-    if let Some(name) = issuer {
+    let configured = store.authority_entry();
+    if let Some(name) =
+        issuer.or_else(|| configured.and_then(CertificateSource::basename))
+    {
         return Ok((store.ca_cert_path(name), store.ca_key_path(name)));
     }
-    match store.authority_entry() {
-        Some(CertificateSource::Name(name)) => Ok((
-            store.ca_cert_path(name.as_str()),
-            store.ca_key_path(name.as_str())
-        )),
+    match configured {
         Some(CertificateSource::Path(path)) => {
             let certificate = store.dir().join(path);
             let key = certificate.parent()
@@ -30,7 +36,7 @@ pub(crate) fn resolve_issuer_paths(
             let key = paths.key_path().ok_or_else(|| SSLError::Other("no CA key path configured".into()))?;
             Ok((certificate.clone(), key.clone()))
         }
-        Some(CertificateSource::Cn(_)) => Err(SSLError::Other(
+        Some(_) => Err(SSLError::Other(
             "database authority cannot be used by the file-only claviron-cert tool; use claviron-client or select a file authority".into()
         )),
         None => Err(SSLError::Other("no certificate authority configured".into()))
@@ -43,21 +49,22 @@ mod tests;
 
 pub(crate) fn read_issuer_materials(
     store: &CertStore,
-    issuer: &Option<String>,
+    issuer: Option<&CommonName>,
     options: &crate::Options,
-) -> Result<(Vec<u8>, Vec<u8>), SSLError> {
-    let source = issuer.as_deref().map(str::to_owned).or_else(|| {
-        match store.authority_entry() {
-            Some(
-                CertificateSource::Name(name) | CertificateSource::Cn(name),
-            ) => Some(name.as_str().to_owned()),
-            _ => None,
-        }
-    });
-    let explicit_cn = issuer.is_none()
-        && matches!(store.authority_entry(), Some(CertificateSource::Cn(_)));
-    if !explicit_cn {
-        let (cert, key) = resolve_issuer_paths(store, issuer)?;
+) -> Result<SigningMaterial, SSLError> {
+    let (basename, fallback, use_files) =
+        match (issuer, store.authority_entry()) {
+            (Some(name), _) | (None, Some(CertificateSource::Name(name))) => {
+                let basename = Basename::new(name.as_str());
+                (basename, Some(name), basename.is_some())
+            }
+            (None, Some(CertificateSource::Cn(name))) => {
+                (None, Some(name), false)
+            }
+            (None, _) => (None, None, true),
+        };
+    if use_files {
+        let (cert, key) = resolve_issuer_paths(store, basename)?;
         let exists = |path: &PathBuf| {
             path.try_exists()
                 .map_err(|source| SSLError::Io { path: path.clone(), source })
@@ -65,18 +72,23 @@ pub(crate) fn read_issuer_materials(
         let cert_exists = exists(&cert)?;
         let key_exists = exists(&key)?;
         // Only a named source missing both files may fall back to hosting.
-        if cert_exists || key_exists || source.is_none() {
+        if cert_exists || key_exists || fallback.is_none() {
             let read = |path: PathBuf| {
                 std::fs::read(&path)
                     .map_err(|source| SSLError::Io { path, source })
             };
-            return Ok((read(cert)?, read(key)?));
+            let cert = read(cert)?;
+            let key = read(key)?;
+            return Ok(SigningMaterial {
+                certificates: concat_chain_bytes_from_pem(&cert)?,
+                key: read_private_key_from_pem(&key)?,
+            });
         }
     }
     #[cfg(feature = "hosting")]
     {
         read_hosting_materials(
-            source.as_deref().ok_or_else(|| {
+            fallback.ok_or_else(|| {
                 SSLError::Other("no certificate authority configured".into())
             })?,
             options,
@@ -94,10 +106,11 @@ pub(crate) fn read_issuer_materials(
 
 #[cfg(feature = "hosting")]
 fn read_hosting_materials(
-    name: &str,
+    name: &CommonName,
     options: &crate::Options,
-) -> Result<(Vec<u8>, Vec<u8>), SSLError> {
+) -> Result<SigningMaterial, SSLError> {
     use claviron::hosting::{CertificateKind, HostingStore};
+    use claviron::ssl::generators::read_private_key_from_der;
     use claviron_tools::config::{CliConfig, HostingPool};
     let error = |e: &dyn std::fmt::Display| SSLError::Other(e.to_string());
     let runtime = tokio::runtime::Builder::new_current_thread()
@@ -127,7 +140,7 @@ fn read_hosting_materials(
             }
         };
         let cert = hosting
-            .certificate_by_cn(name)
+            .certificate_by_cn(name.as_str())
             .await
             .map_err(|e| error(&e))?
             .ok_or_else(|| {
@@ -139,13 +152,9 @@ fn read_hosting_materials(
                 "hosting certificate '{name}' is not an enabled CA"
             )));
         }
-        Ok((
-            claviron::ssl::formatters::certificate_chain_to_pem(
-                &cert.certs_der,
-            )?
-            .into_bytes(),
-            claviron::ssl::transfer::private_key_to_pem(&cert.key_der)?
-                .into_bytes(),
-        ))
+        Ok(SigningMaterial {
+            certificates: cert.certs_der,
+            key: read_private_key_from_der(&cert.key_der)?,
+        })
     })
 }

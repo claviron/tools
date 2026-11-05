@@ -11,14 +11,14 @@ fn file_sources_keep_certificate_and_key_order_and_reject_database_identity() {
         .unwrap()
     };
     assert_eq!(
-        resolve_issuer_paths(&store("'Roma CA'"), &None).unwrap(),
+        resolve_issuer_paths(&store("{local: roma}"), None).unwrap(),
         (
-            PathBuf::from("certstore/ca/Roma CA/ca.crt"),
-            PathBuf::from("certstore/ca/Roma CA/ca.key")
+            PathBuf::from("certstore/ca/roma/ca.crt"),
+            PathBuf::from("certstore/ca/roma/ca.key")
         )
     );
     assert_eq!(
-        resolve_issuer_paths(&store("{path: ca/roma/ca.crt}"), &None).unwrap(),
+        resolve_issuer_paths(&store("{path: ca/roma/ca.crt}"), None).unwrap(),
         (
             PathBuf::from("certstore/ca/roma/ca.crt"),
             PathBuf::from("certstore/ca/roma/ca.key")
@@ -27,20 +27,20 @@ fn file_sources_keep_certificate_and_key_order_and_reject_database_identity() {
     assert_eq!(
         resolve_issuer_paths(
             &store("{cert_path: ca.pem, key_path: signing.key}"),
-            &None
+            None
         )
         .unwrap(),
         (PathBuf::from("ca.pem"), PathBuf::from("signing.key"))
     );
     let db = store("{cn: 'Roma CA'}");
     assert!(
-        resolve_issuer_paths(&db, &None)
+        resolve_issuer_paths(&db, None)
             .unwrap_err()
             .to_string()
             .contains("file-only")
     );
     assert_eq!(
-        resolve_issuer_paths(&db, &Some("local".into())).unwrap(),
+        resolve_issuer_paths(&db, Some("local".parse().unwrap())).unwrap(),
         (
             PathBuf::from("certstore/ca/local/ca.crt"),
             PathBuf::from("certstore/ca/local/ca.key")
@@ -50,6 +50,8 @@ fn file_sources_keep_certificate_and_key_order_and_reject_database_identity() {
 
 #[test]
 fn files_take_precedence_and_partial_pairs_never_fall_back() {
+    use claviron::ssl::{formatters::certificate_chain_to_pem, generators};
+
     let dir = tempfile::tempdir().unwrap();
     let store: CertStore = serde_yaml::from_str(&format!(
         "dir: '{}'\nauthority: local\n",
@@ -58,17 +60,29 @@ fn files_take_precedence_and_partial_pairs_never_fall_back() {
     .unwrap();
     let options =
         crate::Options::parse_from(["claviron-cert", "client", "test"]);
-    std::fs::create_dir_all(store.ca_dir("local")).unwrap();
-    std::fs::write(store.ca_cert_path("local"), b"certificate").unwrap();
+    let local = "local".parse().unwrap();
+    std::fs::create_dir_all(store.ca_dir(local)).unwrap();
+    let key = generators::generate_ca_key().unwrap();
+    let cert = generators::generate_ca_cert(
+        &"Example CA".parse().unwrap(),
+        &key,
+        30,
+        &Default::default(),
+    )
+    .unwrap();
+    std::fs::write(
+        store.ca_cert_path(local),
+        certificate_chain_to_pem(cert.as_ref()).unwrap(),
+    )
+    .unwrap();
     assert!(matches!(
-        read_issuer_materials(&store, &None, &options),
+        read_issuer_materials(&store, None, &options),
         Err(SSLError::Io { .. })
     ));
-    std::fs::write(store.ca_key_path("local"), b"key").unwrap();
-    assert_eq!(
-        read_issuer_materials(&store, &None, &options).unwrap(),
-        (b"certificate".to_vec(), b"key".to_vec())
-    );
+    std::fs::write(store.ca_key_path(local), key.serialize_pem()).unwrap();
+    let material = read_issuer_materials(&store, None, &options).unwrap();
+    assert_eq!(material.certificates, cert.as_ref());
+    assert!(material.key.serialized_der() == key.serialized_der());
 }
 
 #[test]
@@ -79,9 +93,10 @@ fn explicit_cn_does_not_read_files() {
         dir.path().display()
     ))
     .unwrap();
-    std::fs::create_dir_all(store.ca_dir("local")).unwrap();
-    std::fs::write(store.ca_cert_path("local"), b"certificate").unwrap();
-    std::fs::write(store.ca_key_path("local"), b"key").unwrap();
+    let local = "local".parse().unwrap();
+    std::fs::create_dir_all(store.ca_dir(local)).unwrap();
+    std::fs::write(store.ca_cert_path(local), b"certificate").unwrap();
+    std::fs::write(store.ca_key_path(local), b"key").unwrap();
     #[cfg(feature = "hosting")]
     let options = crate::Options::parse_from([
         "claviron-cert",
@@ -93,10 +108,31 @@ fn explicit_cn_does_not_read_files() {
     #[cfg(not(feature = "hosting"))]
     let options =
         crate::Options::parse_from(["claviron-cert", "client", "test"]);
-    let error =
-        read_issuer_materials(&store, &None, &options).unwrap_err().to_string();
+    let error = read_issuer_materials(&store, None, &options)
+        .err()
+        .unwrap()
+        .to_string();
     #[cfg(feature = "hosting")]
     assert!(error.contains("failed to read client config"), "{error}");
     #[cfg(not(feature = "hosting"))]
     assert!(error.contains("hosting feature"), "{error}");
+}
+
+#[test]
+fn cli_distinguishes_common_names_from_store_basenames() {
+    let args = ["claviron-cert", "ca", "Example CA", "--basename"];
+    assert!(
+        crate::Options::try_parse_from(args.into_iter().chain(["example"]))
+            .is_ok()
+    );
+    for basename in ["../root", "Example CA", "example.test", "longerthan"] {
+        assert!(
+            crate::Options::try_parse_from(args.into_iter().chain([basename]))
+                .is_err()
+        );
+    }
+    assert!(
+        crate::Options::try_parse_from(["claviron-cert", "client", " "])
+            .is_err()
+    );
 }

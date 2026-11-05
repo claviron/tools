@@ -75,32 +75,32 @@ async fn batch_import_is_repeatable_and_continues_after_bad_records() {
     std::fs::create_dir_all(root.join("renewal")).unwrap();
     let valid = root.join("live/valid.test");
     std::fs::create_dir_all(&valid).unwrap();
-    let ca_key =
-        claviron::ssl::generators::generate_ca_key().unwrap().serialize_pem();
+    let ca_key = claviron::ssl::generators::generate_ca_key().unwrap();
     let ca_cert = claviron::ssl::generators::generate_ca_cert(
-        "Test CA",
-        ca_key.as_bytes(),
+        &"Test CA".parse().unwrap(),
+        &ca_key,
         30,
-        None,
-        None,
+        &Default::default(),
     )
     .unwrap();
-    let leaf_key = claviron::ssl::generators::generate_private_key()
-        .unwrap()
-        .serialize_pem();
-    let mut fullchain = claviron::ssl::generators::generate_leaf_cert(
+    let leaf_key = claviron::ssl::generators::generate_private_key().unwrap();
+    let certificate = claviron::ssl::generators::generate_leaf_cert(
         CertificateKind::Server,
-        "valid.test",
-        leaf_key.as_bytes(),
-        &ca_cert,
-        ca_key.as_bytes(),
+        &"valid.test".parse().unwrap(),
+        &leaf_key,
+        ca_cert.as_ref(),
+        &ca_key,
         2,
         &["alias.test"],
     )
     .unwrap();
-    fullchain.extend_from_slice(&ca_cert);
+    let fullchain = claviron::ssl::formatters::certificate_chain_to_pem(
+        &[certificate.as_ref(), ca_cert.as_ref()].concat(),
+    )
+    .unwrap();
     std::fs::write(valid.join("fullchain.pem"), fullchain).unwrap();
-    std::fs::write(valid.join("privkey.pem"), leaf_key).unwrap();
+    std::fs::write(valid.join("privkey.pem"), leaf_key.serialize_pem())
+        .unwrap();
     std::fs::write(
         root.join("renewal/valid.test.conf"),
         format!(

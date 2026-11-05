@@ -2,7 +2,7 @@
 use std::fs::{self, OpenOptions};
 use std::io::{ErrorKind, Write};
 use std::os::unix::fs::OpenOptionsExt;
-use std::path::{Component, Path};
+use std::path::Path;
 
 use claviron::ssl::certstore::{
     CLIENT_CERT_FILENAME, CertStore, FULLCHAIN_CERT_FILENAME,
@@ -10,21 +10,14 @@ use claviron::ssl::certstore::{
 use claviron::ssl::parsers::{
     sanitize_pem_content_to_der, take_first_cert_from_der,
 };
-use claviron::ssl::{SSLError, crl};
+use claviron::ssl::{Basename, CommonName, SSLError, crl};
 
 pub(crate) fn run(
     store: &CertStore,
-    name: &str,
-    issuer: Option<String>,
+    name: &CommonName,
+    issuer: Option<Basename>,
 ) -> Result<(), SSLError> {
-    let mut parts = Path::new(name).components();
-    if !matches!(parts.next(), Some(Component::Normal(_)))
-        || parts.next().is_some()
-    {
-        return Err(SSLError::Other(
-            "certificate name must be a single store entry".into(),
-        ));
-    }
+    let name = crate::store_entry_name(name)?;
     let fullchain = store.client_cert_path(name);
     let client = if fullchain
         .try_exists()
@@ -35,12 +28,12 @@ pub(crate) fn run(
         store.client_dir(name).join(CLIENT_CERT_FILENAME)
     };
     let candidates = [
-        client,
-        store.server_dir(name).join(FULLCHAIN_CERT_FILENAME),
-        store.ca_cert_path(name),
+        Some(client),
+        Some(store.server_dir(name).join(FULLCHAIN_CERT_FILENAME)),
+        Basename::new(name).map(|name| store.ca_cert_path(name)),
     ];
     let mut found = Vec::new();
-    for path in candidates {
+    for path in candidates.into_iter().flatten() {
         if path.try_exists().map_err(|e| SSLError::io_error(&path, e))? {
             found.push(path);
         }
@@ -62,18 +55,13 @@ pub(crate) fn run(
         fs::read(path).map_err(|e| SSLError::io_error(path, e))?;
     let der = sanitize_pem_content_to_der(&certificate);
     let parsed = take_first_cert_from_der(&der)?;
-    let issuer = issuer.or_else(|| {
-        let cn = parsed.issuer().iter_common_name().next()?.as_str().ok()?;
-        // Only use a certificate-derived CN as a single store name.
-        let mut parts = Path::new(cn).components();
-        if !matches!(parts.next(), Some(Component::Normal(_)))
-            || parts.next().is_some()
-        {
-            return None;
-        }
-        store.ca_cert_path(cn).is_file().then(|| cn.to_owned())
-    });
-    let (ca, key) = crate::issuer::resolve_issuer_paths(store, &issuer)?;
+    let issuer = match issuer {
+        Some(issuer) => Some(issuer),
+        None => CommonName::read(parsed.issuer())?
+            .and_then(Basename::new)
+            .filter(|name| store.ca_cert_path(*name).is_file()),
+    };
+    let (ca, key) = crate::issuer::resolve_issuer_paths(store, issuer)?;
     let ca = fs::read(&ca).map_err(|e| SSLError::io_error(&ca, e))?;
     let key = fs::read(&key).map_err(|e| SSLError::io_error(&key, e))?;
     let output = store.crl_path();

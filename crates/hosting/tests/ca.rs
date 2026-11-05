@@ -10,7 +10,7 @@ fn client_import_resolves_existing_generator_filenames() {
     std::fs::write(&config, "dir: material\n").unwrap();
     let paths = resolve_kind_paths(
         CertificateKind::Client,
-        Some("operator"),
+        Some("operator".parse().unwrap()),
         Some(config),
         None,
         None,
@@ -57,29 +57,44 @@ fn certstore_is_local_and_resolves_beside_client_config() {
 fn accepts_ca_material_but_rejects_leaf_and_mismatched_key() {
     let key = generators::generate_ca_key().unwrap();
     let pem = key.serialize_pem();
-    let cert =
-        generators::generate_ca_cert("Roma CA", pem.as_bytes(), 30, None, None)
-            .unwrap();
-    let ca = plan_ca(&cert, pem.as_bytes(), &[]).unwrap();
+    let certificate = generators::generate_ca_cert(
+        &"Roma CA".parse().unwrap(),
+        &key,
+        30,
+        &Default::default(),
+    )
+    .unwrap();
+    let cert = claviron::ssl::formatters::certificate_chain_to_pem(
+        certificate.as_ref(),
+    )
+    .unwrap();
+    let ca = plan_ca(cert.as_bytes(), pem.as_bytes(), &[]).unwrap();
     assert_eq!(ca.kind, CertificateKind::Ca);
-    assert_eq!(ca.common_name, "Roma CA");
+    assert_eq!(ca.common_name.as_str(), "Roma CA");
     assert!(ca.aliases.is_empty());
     assert_eq!(ca.issuer_id, None);
     let leaf_key = generators::generate_private_key().unwrap();
-    assert!(plan_ca(&cert, leaf_key.serialize_pem().as_bytes(), &[]).is_err());
+    assert!(
+        plan_ca(cert.as_bytes(), leaf_key.serialize_pem().as_bytes(), &[])
+            .is_err()
+    );
     let leaf = generators::generate_leaf_cert(
         CertificateKind::Server,
-        "server.test",
-        leaf_key.serialize_pem().as_bytes(),
-        &cert,
-        pem.as_bytes(),
+        &"server.test".parse().unwrap(),
+        &leaf_key,
+        certificate.as_ref(),
+        &key,
         2,
         &[] as &[String],
     )
     .unwrap();
+    let leaf =
+        claviron::ssl::formatters::certificate_chain_to_pem(leaf.as_ref())
+            .unwrap();
     let issuers = [IssuerCandidate { id: 7, certs_der: ca.certs_der }];
     assert!(
-        plan_ca(&leaf, leaf_key.serialize_pem().as_bytes(), &issuers).is_err()
+        plan_ca(leaf.as_bytes(), leaf_key.serialize_pem().as_bytes(), &issuers)
+            .is_err()
     );
 }
 
@@ -146,7 +161,7 @@ fn named_ca_uses_shared_store_and_explicit_paths_override_it() {
     ])
     .unwrap();
     assert!(
-        matches!(options.command, crate::Command::ImportCa { basename: Some(ref basename), .. } if basename == "root")
+        matches!(options.command, crate::Command::ImportCa { basename: Some(basename), .. } if basename.as_str() == "root")
     );
     for command in ["import-ca", "import-server", "import-client"] {
         for flag in ["-b", "--basename"] {
@@ -165,7 +180,7 @@ fn named_ca_uses_shared_store_and_explicit_paths_override_it() {
     let config = temp.path().join("certstore.yaml");
     std::fs::write(&config, "dir: material\n").unwrap();
     let paths = resolve_input_paths(
-        Some("root"),
+        Some("root".parse().unwrap()),
         Some(config.clone()),
         None,
         None,
@@ -178,7 +193,7 @@ fn named_ca_uses_shared_store_and_explicit_paths_override_it() {
         (ca_dir.join(CA_CERT_FILENAME), ca_dir.join(CA_KEY_FILENAME))
     );
     let overridden = resolve_input_paths(
-        Some("root"),
+        Some("root".parse().unwrap()),
         Some(config.clone()),
         None,
         Some(Path::new("override.pem")),
@@ -188,8 +203,13 @@ fn named_ca_uses_shared_store_and_explicit_paths_override_it() {
     assert_eq!(overridden.0, Path::new("override.pem"));
     assert_eq!(overridden.1, paths.1);
     assert!(
-        resolve_input_paths(Some("../root"), Some(config), None, None, None)
-            .is_err()
+        crate::Options::try_parse_from([
+            "claviron-hosting",
+            "import-ca",
+            "--basename",
+            "../root",
+        ])
+        .is_err()
     );
     let explicit = resolve_input_paths(
         None,

@@ -12,7 +12,7 @@ use claviron::ssl::formatters::parse_text_from_pem;
 use claviron::ssl::parsers::{
     concat_chain_bytes_from_pem, take_first_cert_from_der,
 };
-use claviron::ssl::{Aliases, Host, KeyString, Sni};
+use claviron::ssl::{Aliases, Basename, Host, KeyString, Sni};
 use claviron_acme as acme;
 use claviron_acme::account::{
     ACCOUNT_FILE_NAME, ACCOUNT_KEY_FILE_NAME, Account, CERT_META_PATH,
@@ -93,7 +93,7 @@ pub enum Command {
     ImportCa {
         /// CA basename; resolves through the shared certstore.yaml
         #[arg(long = "basename", short = 'b', help = "CA folder name in the configured certstore", required_unless_present_any = ["dir", "cert"])]
-        basename: Option<String>,
+        basename: Option<Basename>,
         #[arg(
             long,
             short = 'd',
@@ -170,7 +170,7 @@ pub enum Command {
 pub struct MaterialInput {
     /// Certificate basename resolved through the shared certstore.yaml
     #[arg(long = "basename", short = 'b', help = "Certificate folder name in the configured certstore", required_unless_present_any = ["dir", "cert"])]
-    basename: Option<String>,
+    basename: Option<Basename>,
     /// Full or cwd-relative certificate directory; overrides the basename
     #[arg(long, short = 'd')]
     dir: Option<PathBuf>,
@@ -229,7 +229,7 @@ async fn run(options: Options) -> claviron::Result<()> {
         .map(|(kind, basename, dir, cert, key)| {
             ca::resolve_kind_paths(
                 kind,
-                basename.as_deref(),
+                *basename,
                 Some(certstore_config_path.clone()),
                 dir.as_deref(),
                 cert.as_deref(),

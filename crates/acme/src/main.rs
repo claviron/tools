@@ -5,7 +5,7 @@ use std::{fs, process};
 use clap::Parser;
 use claviron::Error;
 use claviron::ssl::certstore::{FULLCHAIN_CERT_FILENAME, PRIVKEY_FILENAME};
-use claviron::ssl::{KeyString, Sni};
+use claviron::ssl::{Basename, KeyString, Sni};
 use claviron_acme::account::{Account, CERT_META_PATH};
 use claviron_acme::actions::account::new_account;
 use claviron_acme::actions::certificate::new_cert;
@@ -51,7 +51,7 @@ pub enum Command {
             help = "ACME account folder name",
             default_value = "claviron"
         )]
-        basename: String,
+        basename: Basename,
     },
     /// Create a new ACME certificate
     #[command(aliases = ["create","add"])]
@@ -94,7 +94,8 @@ async fn main() -> claviron::Result<()> {
         Command::NewAccount { basename } => {
             println!("registering new account with name {}", basename);
 
-            let mut account = Account::with_config(cfg, &mode, &basename);
+            let mut account =
+                Account::with_config(cfg, &mode, basename.as_str());
 
             new_account(&mut account).await.unwrap_or_else(|e| {
                 eprintln!("FAILED: {}", e.to_string().bright_red());

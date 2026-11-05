@@ -2,6 +2,7 @@
 use std::path::{Path, PathBuf};
 
 use claviron::hosting::{CertificateKind, HostingStore, NewCertificate};
+use claviron::ssl::Basename;
 use claviron::ssl::certstore::{
     CA_CERT_FILENAME, CA_KEY_FILENAME, CLIENT_CERT_FILENAME,
     CLIENT_KEY_FILENAME, CertStore, FULLCHAIN_CERT_FILENAME, PRIVKEY_FILENAME,
@@ -22,7 +23,7 @@ pub fn config_path(
 
 #[cfg(test)]
 pub fn resolve_input_paths(
-    basename: Option<&str>,
+    basename: Option<Basename>,
     config_path: Option<PathBuf>,
     dir: Option<&Path>,
     certificate: Option<&Path>,
@@ -40,7 +41,7 @@ pub fn resolve_input_paths(
 
 pub fn resolve_kind_paths(
     kind: CertificateKind,
-    basename: Option<&str>,
+    basename: Option<Basename>,
     config_path: Option<PathBuf>,
     dir: Option<&Path>,
     certificate: Option<&Path>,
@@ -71,16 +72,6 @@ pub fn resolve_kind_paths(
             "provide --basename, --dir, or --cert and --key".into(),
         )
     })?;
-    let mut components = Path::new(basename).components();
-    if !matches!(components.next(), Some(std::path::Component::Normal(_)))
-        || components.next().is_some()
-        || basename.contains(['/', '\\'])
-    {
-        return Err(claviron::Error::Cli(
-            "basename must be a single directory name; use --dir for a path"
-                .into(),
-        ));
-    }
     let config_path = CertStore::resolve_path(config_path);
     let store = CertStore::from_path(&config_path).map_err(|error| {
         claviron::Error::Cli(format!(
@@ -90,8 +81,8 @@ pub fn resolve_kind_paths(
     })?;
     let dir = match kind {
         CertificateKind::Ca => store.ca_dir(basename),
-        CertificateKind::Server => store.server_dir(basename),
-        CertificateKind::Client => store.client_dir(basename),
+        CertificateKind::Server => store.server_dir(basename.as_str()),
+        CertificateKind::Client => store.client_dir(basename.as_str()),
     };
     paths(&dir)
 }
@@ -179,13 +170,14 @@ pub async fn import_kind(
     let new = NewCertificate {
         kind: plan.kind,
         issuer_id: plan.issuer_id,
-        cn: plan.common_name,
+        cn: plan.common_name.into(),
         certs_der: plan.certs_der,
         key_der: plan.key_der,
         expires_at: plan.expires_at,
         issued_at: plan.issued_at,
         enabled: true,
     };
+    let aliases: Vec<String> = plan.aliases.into();
     let saved = if kind == CertificateKind::Server {
         let server = store
             .server_by_name(server_name)
@@ -196,9 +188,9 @@ pub async fn import_kind(
                     "hosting server '{server_name}' not found"
                 ))
             })?;
-        store.insert_certificate(new, &plan.aliases, server.id).await
+        store.insert_certificate(new, &aliases, server.id).await
     } else {
-        store.insert_unassigned_certificate(new, &plan.aliases).await
+        store.insert_unassigned_certificate(new, &aliases).await
     }
     .map_err(super::hosting_error)?;
     println!(

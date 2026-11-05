@@ -1,6 +1,6 @@
 use std::fs;
 use std::os::unix::fs::{OpenOptionsExt, PermissionsExt};
-use std::path::{Path, PathBuf};
+use std::path::{Component, Path, PathBuf};
 use std::str::FromStr;
 
 use clap::Parser;
@@ -9,18 +9,22 @@ use claviron::ssl::certstore::{
     CLIENT_KEY_FILENAME, CLIENT_TEXT_FILENAME, CertStore,
     FULLCHAIN_CERT_FILENAME,
 };
-use claviron::ssl::formatters::parse_text_from_pem;
+use claviron::ssl::formatters::{
+    certificate_chain_to_pem, parse_text_from_pem,
+};
 use claviron::ssl::generators::{
     generate_ca_cert, generate_client_cert, generate_intermediate_ca_cert,
     generate_private_key, generate_server_cert, generate_server_csr,
 };
-use claviron::ssl::{Aliases, Host, SSLError};
+use claviron::ssl::{
+    Aliases, Basename, CommonName, Host, Organization, SSLError,
+};
 use claviron_tools::init_client_logger;
 use dotenvy::dotenv_override;
 
 mod issuer;
 mod revoke;
-use issuer::read_issuer_materials;
+use issuer::{SigningMaterial, read_issuer_materials};
 
 #[derive(Debug, Parser)]
 #[command(
@@ -57,10 +61,10 @@ pub enum Command {
     /// Permanently revoke a local certificate and update the signed CRL file
     Revoke {
         /// Certificate name in the configured store
-        name: String,
-        /// Issuer name; omitted to resolve the certificate's signing CA
+        name: CommonName,
+        /// Local CA basename; omitted to resolve the certificate's signing CA
         #[arg(long)]
-        issuer: Option<String>,
+        issuer: Option<Basename>,
     },
     /// Create a new mTLS server certificate
     #[command(aliases = ["Server","ServerCert"])]
@@ -79,7 +83,7 @@ pub enum Command {
             short = 'b',
             help = "Certificate folder name (default: first domain)"
         )]
-        basename: Option<String>,
+        basename: Option<Basename>,
 
         /// intermediate certificate issuer (if not provided, defaults to root CA)
         #[arg(
@@ -87,7 +91,7 @@ pub enum Command {
             long = "issuer",
             help = "Intermediate certificate issuer (if not provided, defaults to root CA)"
         )]
-        issuer: Option<String>,
+        issuer: Option<CommonName>,
 
         /// Validity days (default: 1825 = 1 year)
         #[arg(
@@ -117,7 +121,7 @@ pub enum Command {
     Client {
         /// Main CN (common name)
         #[arg(help = "Common Name (CN) for the client certificate")]
-        cname: String,
+        cname: CommonName,
 
         /// intermediate certificate issuer (if not provided, defaults to root CA)
         #[arg(
@@ -125,7 +129,7 @@ pub enum Command {
             long = "issuer",
             help = "Intermediate certificate issuer (if not provided, defaults to root CA)"
         )]
-        issuer: Option<String>,
+        issuer: Option<CommonName>,
 
         /// Validity days (default: 365 = 1 year)
         #[arg(
@@ -154,13 +158,13 @@ pub enum Command {
     #[command(aliases = ["Intermediate","intca"])]
     Intermediate {
         #[arg(help = "Common Name (CN) for the intermediate CA")]
-        cname: String,
+        cname: CommonName,
         #[arg(
             long = "basename",
             short = 'b',
             help = "Intermediate CA folder name"
         )]
-        basename: String,
+        basename: Basename,
         /// Validity days (default: 3650 = 10 years)
         #[arg(
             long,
@@ -173,10 +177,10 @@ pub enum Command {
     #[command(aliases = ["CA","Ca","CaCert"])]
     Ca {
         #[arg(help = "Common Name (CN) for the Root CA")]
-        cname: String,
+        cname: CommonName,
 
         #[arg(long = "basename", short = 'b', help = "CA folder name")]
-        basename: String,
+        basename: Basename,
         /// Validity days (default: 3650 = 10 years)
         #[arg(
             long,
@@ -189,6 +193,18 @@ pub enum Command {
         #[arg(long, help = "Country code (optional, e.g. TR)")]
         country: Option<String>,
     },
+}
+
+fn store_entry_name(name: &CommonName) -> Result<&str, SSLError> {
+    let name = name.as_str();
+    let mut parts = Path::new(name).components();
+    if !matches!(parts.next(), Some(Component::Normal(_)))
+        || parts.next().is_some()
+        || name.contains(['/', '\\'])
+    {
+        return Err("certificate name must be a single store entry".into());
+    }
+    Ok(name)
 }
 
 fn main() -> claviron::Result<()> {
@@ -331,22 +347,18 @@ fn main() -> claviron::Result<()> {
 
     fn run_server(
         aliases: Aliases,
-        basename: Option<String>,
+        basename: Option<Basename>,
         cfg: &CertStore,
         days: u32,
-        material: &(Vec<u8>, Vec<u8>),
+        material: &SigningMaterial,
         include_chain: bool,
         owner: &Option<FileOwner>,
     ) -> Result<(), SSLError> {
-        let cname: std::borrow::Cow<'_, str> = aliases
-            .first()
-            .map(|host| host.to_cow_str())
-            .ok_or(SSLError::NoDomainsProvided)?;
-
-        let basename: &str = match basename.as_deref() {
-            Some(name) => name,
-            None => cname.as_ref(),
-        };
+        let cname = CommonName::from(
+            aliases.first().ok_or(SSLError::NoDomainsProvided)?,
+        );
+        let basename =
+            basename.as_ref().map_or(cname.as_str(), Basename::as_str);
         let dir = cfg.server_dir(basename);
 
         fs::create_dir_all(&dir)
@@ -358,12 +370,9 @@ fn main() -> claviron::Result<()> {
         let key_path = dir.join("server.key");
         let legacy_key_path = dir.join("privkey.pem");
 
-        // issue cert using issuer
-        let (issuer_cert_pem, issuer_key_pem) = material;
-
         let csr = generate_server_csr(
             &subject_key,
-            cname.as_ref(),
+            &cname,
             &aliases,
             cfg.organization(),
         )?;
@@ -377,13 +386,14 @@ fn main() -> claviron::Result<()> {
         // 	}
         // }
 
-        let cert_pem = generate_server_cert(
+        let certificate = generate_server_cert(
             &csr,
-            key_pem.as_bytes(),
-            issuer_cert_pem,
-            issuer_key_pem,
+            &subject_key,
+            &material.certificates,
+            &material.key,
             days,
         )?;
+        let cert_pem = certificate_chain_to_pem(certificate.as_ref())?;
 
         write_with_user_only_access(&key_path, key_pem.as_bytes())?;
         chown_if_requested(&key_path, owner)?;
@@ -398,17 +408,16 @@ fn main() -> claviron::Result<()> {
 
         if include_chain {
             let fullchain_path = dir.join("fullchain.pem");
-            let mut fullchain =
-                Vec::with_capacity(cert_pem.len() + issuer_cert_pem.len());
-            fullchain.extend_from_slice(&cert_pem);
-            fullchain.extend_from_slice(issuer_cert_pem);
+            let mut fullchain = cert_pem.clone();
+            fullchain
+                .push_str(&certificate_chain_to_pem(&material.certificates)?);
             fs::write(&fullchain_path, &fullchain).map_err(|e| {
                 SSLError::Io { path: fullchain_path.clone(), source: e }
             })?;
         }
 
         let txt_path = dir.join("certificate.txt");
-        write_certificate_text(&cert_pem, &txt_path)?;
+        write_certificate_text(cert_pem.as_bytes(), &txt_path)?;
 
         // create a CSR and store for renewal reference
         let csr_path = dir.join("request.csr");
@@ -426,14 +435,14 @@ fn main() -> claviron::Result<()> {
     }
 
     fn run_client(
-        cname: &str,
+        cname: &CommonName,
         cfg: &CertStore,
-        material: &(Vec<u8>, Vec<u8>),
+        material: &SigningMaterial,
         days: u32,
         include_chain: bool,
         owner: &Option<FileOwner>,
     ) -> Result<(), SSLError> {
-        let dir = cfg.client_dir(cname);
+        let dir = cfg.client_dir(store_entry_name(cname)?);
 
         // TODO: Review and standardize permissions for all certificate directories.
         fs::create_dir_all(&dir)
@@ -449,35 +458,32 @@ fn main() -> claviron::Result<()> {
         let client_key_pem = client_key.serialize_pem();
         let key_path = dir.join(CLIENT_KEY_FILENAME);
 
-        // issuer
-        let (issuer_cert_pem, issuer_key_pem) = material;
-
         // minimal client cert (no extra SANs)
-        let cert_pem = generate_client_cert(
+        let certificate = generate_client_cert(
             cname,
-            client_key_pem.as_bytes(),
-            issuer_cert_pem,
-            issuer_key_pem,
+            &client_key,
+            &material.certificates,
+            &material.key,
             days,
             &[] as &[&str],
         )?;
+        let cert_pem = certificate_chain_to_pem(certificate.as_ref())?;
         let crt_path = dir.join(CLIENT_CERT_FILENAME);
         fs::write(&crt_path, &cert_pem)
             .map_err(|e| SSLError::Io { path: crt_path.clone(), source: e })?;
 
         if include_chain {
             let fullchain_path = dir.join(FULLCHAIN_CERT_FILENAME);
-            let mut fullchain =
-                Vec::with_capacity(cert_pem.len() + issuer_cert_pem.len());
-            fullchain.extend_from_slice(&cert_pem);
-            fullchain.extend_from_slice(issuer_cert_pem);
+            let mut fullchain = cert_pem.clone();
+            fullchain
+                .push_str(&certificate_chain_to_pem(&material.certificates)?);
             fs::write(&fullchain_path, &fullchain).map_err(|e| {
                 SSLError::Io { path: fullchain_path.clone(), source: e }
             })?;
         }
 
         let txt_path = dir.join(CLIENT_TEXT_FILENAME);
-        write_certificate_text(&cert_pem, &txt_path)?;
+        write_certificate_text(cert_pem.as_bytes(), &txt_path)?;
         write_with_user_only_access(&key_path, client_key_pem.as_bytes())?;
         chown_if_requested(&key_path, owner)?;
 
@@ -486,11 +492,11 @@ fn main() -> claviron::Result<()> {
     }
 
     fn run_intermediate(
-        cname: &str,
-        basename: &str,
+        cname: &CommonName,
+        basename: Basename,
         cfg: &CertStore,
         days: u32,
-        material: &(Vec<u8>, Vec<u8>),
+        material: &SigningMaterial,
     ) -> Result<(), SSLError> {
         // generate intermediate key and cert in cfg.root()
 
@@ -512,38 +518,35 @@ fn main() -> claviron::Result<()> {
 
         let key = generate_private_key()?;
 
-        // sign by root CA
-        let (issuer_cert_pem, issuer_key_pem) = material;
-
         let org = cfg.organization();
-        let cert_pem = generate_intermediate_ca_cert(
-            key.serialize_pem().as_bytes(),
-            issuer_cert_pem,
-            issuer_key_pem,
+        let certificate = generate_intermediate_ca_cert(
+            &key,
+            &material.certificates,
+            &material.key,
             cname,
             days,
             org,
             Some(0),
         )?;
+        let cert_pem = certificate_chain_to_pem(certificate.as_ref())?;
 
         write_with_user_only_access(&key_path, key.serialize_pem().as_bytes())?;
 
         fs::write(&crt_path, &cert_pem)
             .map_err(|e| SSLError::Io { path: crt_path.clone(), source: e })?;
 
-        write_certificate_text(&cert_pem, &txt_path)?;
+        write_certificate_text(cert_pem.as_bytes(), &txt_path)?;
 
         println!("[intermediate] CN={cname} -> {}", crt_path.display());
         Ok(())
     }
 
     fn run_ca(
-        cname: &str,
-        basename: &str,
+        cname: &CommonName,
+        basename: Basename,
         cfg: &CertStore,
         days: u32,
-        org: &Option<String>,
-        country: &Option<String>,
+        organization: &Organization,
     ) -> Result<(), SSLError> {
         // Load or create CA key
         let ca_dir = cfg.ca_dir(basename);
@@ -563,24 +566,19 @@ fn main() -> claviron::Result<()> {
         let txt_path = ca_dir.join("ca.txt");
 
         let kp = generate_private_key()?; // ECDSA P-256
-        let ca_key_pem = kp.serialize_pem().into_bytes();
+        let ca_key_pem = kp.serialize_pem();
 
         // Generate CA certificate
-        let cert_pem = generate_ca_cert(
-            cname,
-            &ca_key_pem,
-            days,
-            org.as_deref(),
-            country.as_deref(),
-        )?;
+        let certificate = generate_ca_cert(cname, &kp, days, organization)?;
+        let cert_pem = certificate_chain_to_pem(certificate.as_ref())?;
 
         // Write CA key securely (mode 0o600)
-        write_with_user_only_access(&key_path, &ca_key_pem)?;
+        write_with_user_only_access(&key_path, ca_key_pem.as_bytes())?;
 
         fs::write(&crt_path, &cert_pem)
             .map_err(|e| SSLError::Io { path: crt_path.clone(), source: e })?;
 
-        write_certificate_text(&cert_pem, &txt_path)?;
+        write_certificate_text(cert_pem.as_bytes(), &txt_path)?;
 
         println!("[ca] CN={cname} -> {}", crt_path.display());
         Ok(())
@@ -589,12 +587,12 @@ fn main() -> claviron::Result<()> {
     let material = match &options.command {
         Command::Server { issuer, .. } | Command::Client { issuer, .. } => {
             Some(
-                read_issuer_materials(&certstore, issuer, &options)
+                read_issuer_materials(&certstore, issuer.as_ref(), &options)
                     .map_err(|e| claviron::Error::Cli(e.to_string()))?,
             )
         }
         Command::Intermediate { .. } => Some(
-            read_issuer_materials(&certstore, &None, &options)
+            read_issuer_materials(&certstore, None, &options)
                 .map_err(|e| claviron::Error::Cli(e.to_string()))?,
         ),
         Command::Ca { .. } | Command::Revoke { .. } => None,
@@ -632,13 +630,18 @@ fn main() -> claviron::Result<()> {
         }
         Command::Intermediate { cname, basename, days } => run_intermediate(
             &cname,
-            &basename,
+            basename,
             &certstore,
             days,
             material.as_ref().expect("resolved above"),
         ),
         Command::Ca { cname, basename, days, org, country } => {
-            run_ca(&cname, &basename, &certstore, days, &org, &country)
+            let organization = Organization {
+                name: org.unwrap_or_default().into_boxed_str(),
+                country: country.unwrap_or_default().into_boxed_str(),
+                ..Default::default()
+            };
+            run_ca(&cname, basename, &certstore, days, &organization)
         }
     }
     .map_err(|e| claviron::Error::Cli(e.to_string()))?;
