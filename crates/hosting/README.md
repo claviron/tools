@@ -7,7 +7,7 @@ It does not need a running Claviron server or its gRPC control plane.
 ## Install
 
 ```sh
-cargo install claviron-hosting-cli --version 0.2.0-alpha.24 --locked --registry crates-io
+cargo install claviron-hosting-cli --version 0.2.0-alpha.25 --locked --registry crates-io
 ```
 
 Installation requires a Rust toolchain and native build tools. Put Cargo's
