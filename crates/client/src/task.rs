@@ -67,6 +67,45 @@ fn render_task(task: tasks::TaskStatus) -> String {
         task.concurrency,
         in_flight
     ));
+    if let Some(link) = task.link_task {
+        let kind = match tasks::LinkTaskKind::try_from(link.kind) {
+            Ok(tasks::LinkTaskKind::Worker) => "worker",
+            Ok(tasks::LinkTaskKind::Runner) => "runner",
+            _ => "unspecified",
+        };
+        let mut description =
+            format!("  link_task | fleet={} | kind={kind}", link.fleet);
+        if let Some(workers) = link.running_workers {
+            description.push_str(&format!(" | running_workers={workers}"));
+        }
+        lines.push(description);
+        if let Some(policy) = link.worker_policy {
+            use tasks::link_task_status::WorkerPolicy;
+            let workers = match policy {
+                WorkerPolicy::StaticWorkers(workers) => {
+                    format!("static | count={}", workers.count)
+                }
+                WorkerPolicy::DynamicWorkers(workers) => {
+                    use tasks::dynamic_link_workers::Maximum;
+                    let max = match workers.maximum {
+                        Some(Maximum::Max(count)) => count.to_string(),
+                        Some(Maximum::Available(true)) => {
+                            "available".to_owned()
+                        }
+                        _ => "unspecified".to_owned(),
+                    };
+                    let retire_idle = workers
+                        .idle_timeout
+                        .map_or_else(|| "off".to_owned(), format_duration);
+                    format!(
+                        "dynamic | min={} | max={max} | step={} | retire_idle={retire_idle}",
+                        workers.min, workers.step,
+                    )
+                }
+            };
+            lines.push(format!("    workers={workers}"));
+        }
+    }
     // Retain completed execution reports as well as current slot ownership.
     // A scheduled task owns its slot for the whole period and runs for a
     // fraction of it, so filtering on `in_flight` alone reported "nobody has
@@ -795,6 +834,7 @@ fn task_kind(value: i32) -> &'static str {
         tasks::TaskKind::Php => "php",
         tasks::TaskKind::Js => "js",
         tasks::TaskKind::Lua => "lua",
+        tasks::TaskKind::Link => "link",
         tasks::TaskKind::Unspecified => "unspecified",
     }
 }
@@ -1139,6 +1179,41 @@ mod tests {
         assert_eq!(RUN_RESPONSE_ALLOWANCE, Duration::from_secs(30));
     }
 
+    #[test]
+    fn link_task_renders_declared_policy_and_running_workers() {
+        let task = tasks::TaskStatus {
+            name: "example".into(),
+            kind: tasks::TaskKind::Link as i32,
+            link_task: Some(tasks::LinkTaskStatus {
+                fleet: "example".into(),
+                kind: tasks::LinkTaskKind::Worker as i32,
+                running_workers: Some(0),
+                worker_policy: Some(
+                    tasks::link_task_status::WorkerPolicy::DynamicWorkers(
+                        tasks::DynamicLinkWorkers {
+                            min: 1,
+                            maximum: Some(
+                                tasks::dynamic_link_workers::Maximum::Max(4),
+                            ),
+                            step: 1,
+                            idle_timeout: None,
+                        },
+                    ),
+                ),
+            }),
+            ..Default::default()
+        };
+        let output = super::render_task(task);
+        assert!(output.contains("example | link |"));
+        assert!(
+            output.contains("fleet=example | kind=worker | running_workers=0")
+        );
+        assert!(
+            output
+                .contains("dynamic | min=1 | max=4 | step=1 | retire_idle=off")
+        );
+    }
+
     fn snapshot(
         placements: Vec<tasks::TaskPlacementStatus>
     ) -> tasks::TaskStatusResponse {
@@ -1153,6 +1228,7 @@ mod tests {
                 dispatch: tasks::TaskDispatch::Pool as i32,
                 timing: None,
                 concurrency: 2,
+                link_task: None,
                 placements,
             }),
         }

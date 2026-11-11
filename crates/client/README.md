@@ -84,6 +84,9 @@ claviron-client dns --help
 claviron-client domain --help
 ```
 
+`list-tasks` and `task-status` show each Link task's fleet, kind and declared
+worker policy, with its running worker count when verified.
+
 Task start/stop commands wait for the expected fleet placements to report their
 state, not just command acceptance. `run-task` waits for the run result, using
 its configured execution timeout unless `--timeout` overrides it. Worker
