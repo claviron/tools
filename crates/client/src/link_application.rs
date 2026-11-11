@@ -7,22 +7,22 @@ use tonic::transport::Channel;
 
 use crate::common::{CommandResult, format_timestamp};
 use crate::proto::applications;
-use crate::proto::linked_applications::linked_application_manager_client::LinkedApplicationManagerClient;
-use crate::proto::linked_applications::{
-    LinkReachability, LinkedApplicationCommandRequest, LinkedApplicationId,
-    LinkedApplicationStatus, LinkedApplicationStatusRequest,
-    ListLinkedApplicationsRequest,
+use crate::proto::applications::application_manager_client::ApplicationManagerClient;
+use crate::proto::applications::{
+    LinkApplicationCommandRequest, LinkApplicationId, LinkApplicationStatus,
+    LinkApplicationStatusRequest, LinkReachability,
+    ListLinkApplicationsRequest,
 };
 
 pub async fn list(channel: Channel) -> CommandResult {
-    let snapshot = LinkedApplicationManagerClient::new(channel)
-        .list_linked_applications(tonic::Request::new(
-            ListLinkedApplicationsRequest {},
+    let snapshot = ApplicationManagerClient::new(channel)
+        .list_link_applications(tonic::Request::new(
+            ListLinkApplicationsRequest {},
         ))
         .await?
         .into_inner();
     println!(
-        "Linked applications: {} | captured: {}",
+        "Link applications: {} | captured: {}",
         snapshot.applications.len(),
         format_timestamp(snapshot.captured_at)
     );
@@ -37,9 +37,9 @@ pub async fn status(
     fleet: String,
     name: String,
 ) -> CommandResult {
-    let snapshot = LinkedApplicationManagerClient::new(channel)
-        .get_linked_application_status(tonic::Request::new(
-            LinkedApplicationStatusRequest { id: Some(id(fleet, name)) },
+    let snapshot = ApplicationManagerClient::new(channel)
+        .get_link_application_status(tonic::Request::new(
+            LinkApplicationStatusRequest { id: Some(id(fleet, name)) },
         ))
         .await?
         .into_inner();
@@ -111,8 +111,8 @@ pub async fn command(
     application: String,
     action: Action,
 ) -> CommandResult {
-    let mut client = LinkedApplicationManagerClient::new(channel);
-    let request = tonic::Request::new(LinkedApplicationCommandRequest {
+    let mut client = ApplicationManagerClient::new(channel);
+    let request = tonic::Request::new(LinkApplicationCommandRequest {
         id: Some(id(fleet, link)),
         command: String::new(),
         payload: Vec::new(),
@@ -122,21 +122,21 @@ pub async fn command(
         }),
     });
     let response = match action {
-        Action::Start => client.start_linked_application(request).await?,
-        Action::Stop => client.stop_linked_application(request).await?,
-        Action::Restart => client.restart_linked_application(request).await?,
+        Action::Start => client.start_link_application(request).await?,
+        Action::Stop => client.stop_link_application(request).await?,
+        Action::Restart => client.restart_link_application(request).await?,
     }
     .into_inner();
     let shown = display(response.id.as_ref());
     if !response.accepted {
         return Err(format!(
-            "linked application '{shown}' was not accepted for {}",
+            "Link application '{shown}' was not accepted for {}",
             action.label()
         )
         .into());
     }
     println!(
-        "✅ Linked application '{shown}' accepted Link command {}; the runner handles it",
+        "✅ Link application '{shown}' accepted Link command {}; the runner handles it",
         action.label()
     );
     Ok(())
@@ -150,26 +150,24 @@ pub async fn send(
     command: String,
     payload: Vec<u8>,
 ) -> CommandResult {
-    let response = LinkedApplicationManagerClient::new(channel)
-        .send_linked_command(tonic::Request::new(
-            LinkedApplicationCommandRequest {
-                id: Some(id(fleet, link)),
-                command: command.clone(),
-                payload,
-                application: None,
-            },
-        ))
+    let response = ApplicationManagerClient::new(channel)
+        .send_link_command(tonic::Request::new(LinkApplicationCommandRequest {
+            id: Some(id(fleet, link)),
+            command: command.clone(),
+            payload,
+            application: None,
+        }))
         .await?
         .into_inner();
     let shown = display(response.id.as_ref());
     if !response.accepted {
         return Err(format!(
-            "linked runner '{shown}' did not accept command '{command}'"
+            "Link runner '{shown}' did not accept command '{command}'"
         )
         .into());
     }
     println!(
-        "✅ Linked runner '{shown}' accepted command '{command}' into its Link inbox; the runner handles it"
+        "✅ Link runner '{shown}' accepted command '{command}' into its Link inbox; the runner handles it"
     );
     Ok(())
 }
@@ -177,11 +175,11 @@ pub async fn send(
 fn id(
     fleet_name: String,
     name: String,
-) -> LinkedApplicationId {
-    LinkedApplicationId { fleet_name, name, transport: "orbit".to_owned() }
+) -> LinkApplicationId {
+    LinkApplicationId { fleet_name, name, transport: "orbit".to_owned() }
 }
 
-fn display(id: Option<&LinkedApplicationId>) -> String {
+fn display(id: Option<&LinkApplicationId>) -> String {
     id.map_or_else(
         || "<unnamed>".to_owned(),
         |id| format!("{}/{}", id.fleet_name, id.name),
@@ -189,7 +187,7 @@ fn display(id: Option<&LinkedApplicationId>) -> String {
 }
 
 /// One line: advertised runtime and current Link reachability.
-fn describe(application: &LinkedApplicationStatus) -> String {
+fn describe(application: &LinkApplicationStatus) -> String {
     let link = match application.link() {
         LinkReachability::Connected => "connected",
         LinkReachability::Disconnected => "disconnected",

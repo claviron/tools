@@ -498,6 +498,7 @@ mod tests {
                     last_error: last_error.map(ToOwned::to_owned),
                     last_error_truncated: false,
                     observed_at: None,
+                    description: None,
                 }],
             }),
         }

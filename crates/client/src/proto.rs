@@ -22,10 +22,6 @@ pub mod applications {
     include!(concat!(env!("OUT_DIR"), "/claviron.applications.rs"));
 }
 
-pub mod linked_applications {
-    include!(concat!(env!("OUT_DIR"), "/claviron.linked_applications.rs"));
-}
-
 pub mod mtls {
     include!(concat!(env!("OUT_DIR"), "/claviron.mtls.rs"));
 }

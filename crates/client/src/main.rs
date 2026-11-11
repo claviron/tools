@@ -13,7 +13,7 @@ mod client;
 mod common;
 mod dns;
 mod domain;
-mod linked;
+mod link_application;
 mod metrics;
 mod mtls;
 mod proto;
@@ -475,43 +475,42 @@ pub enum Command {
     },
 
     /// List the runners this edge reaches over Orbit Link and their reachability
-    #[command(alias = "list-linked")]
-    ListLinkedApplications,
+    #[command(alias = "list-link")]
+    ListLinkApplications,
 
-    /// Show one linked application, by Link fleet and name
-    #[command(alias = "linked-status")]
-    LinkedApplicationStatus { fleet: String, name: String },
+    /// Show one Link application, by Link fleet and name
+    #[command(name = "link-application-status", alias = "link-status")]
+    LinkApplicationStatus { fleet: String, name: String },
 
-    /// Start one application inside a linked runner
-    #[command(alias = "start-linked")]
-    StartLinkedApplication {
+    /// Start one application inside a Link runner
+    #[command(alias = "start-link")]
+    StartLinkApplication {
         fleet: String,
         link: String,
         runtime: String,
         application: String,
     },
 
-    /// Stop one application inside a linked runner
-    #[command(alias = "stop-linked")]
-    StopLinkedApplication {
+    /// Stop one application inside a Link runner
+    #[command(alias = "stop-link")]
+    StopLinkApplication {
         fleet: String,
         link: String,
         runtime: String,
         application: String,
     },
 
-    /// Restart one application inside a linked runner
-    #[command(alias = "restart-linked")]
-    RestartLinkedApplication {
+    /// Restart one application inside a Link runner
+    #[command(alias = "restart-link")]
+    RestartLinkApplication {
         fleet: String,
         link: String,
         runtime: String,
         application: String,
     },
-    /// Forward an application-defined command to a linked runner; the runner
-    /// decides what it means
-    #[command(alias = "send-linked")]
-    SendLinkedCommand {
+    /// Forward an application-defined command to a Link runner
+    #[command(alias = "send-link")]
+    SendLinkCommand {
         fleet: String,
         link: String,
         command: String,
@@ -851,61 +850,59 @@ async fn main() -> Result<(), common::CliError> {
         Command::RestartApplication { runtime, name, timeout } => {
             application::restart(channel, runtime, name, timeout).await?
         }
-        Command::ListLinkedApplications => linked::list(channel).await?,
-        Command::LinkedApplicationStatus { fleet, name } => {
-            linked::status(channel, fleet, name).await?
+        Command::ListLinkApplications => {
+            link_application::list(channel).await?
         }
-        Command::StartLinkedApplication {
-            fleet,
-            link,
-            runtime,
-            application,
-        } => {
-            linked::command(
+        Command::LinkApplicationStatus { fleet, name } => {
+            link_application::status(channel, fleet, name).await?
+        }
+        Command::StartLinkApplication { fleet, link, runtime, application } => {
+            link_application::command(
                 channel,
                 fleet,
                 link,
                 runtime,
                 application,
-                linked::Action::Start,
+                link_application::Action::Start,
             )
             .await?
         }
-        Command::StopLinkedApplication {
-            fleet,
-            link,
-            runtime,
-            application,
-        } => {
-            linked::command(
+        Command::StopLinkApplication { fleet, link, runtime, application } => {
+            link_application::command(
                 channel,
                 fleet,
                 link,
                 runtime,
                 application,
-                linked::Action::Stop,
+                link_application::Action::Stop,
             )
             .await?
         }
-        Command::RestartLinkedApplication {
+        Command::RestartLinkApplication {
             fleet,
             link,
             runtime,
             application,
         } => {
-            linked::command(
+            link_application::command(
                 channel,
                 fleet,
                 link,
                 runtime,
                 application,
-                linked::Action::Restart,
+                link_application::Action::Restart,
             )
             .await?
         }
-        Command::SendLinkedCommand { fleet, link, command, payload } => {
-            linked::send(channel, fleet, link, command, payload.into_bytes())
-                .await?
+        Command::SendLinkCommand { fleet, link, command, payload } => {
+            link_application::send(
+                channel,
+                fleet,
+                link,
+                command,
+                payload.into_bytes(),
+            )
+            .await?
         }
         Command::AddVhostToServers { vhost_name, server_names } => {
             aliases::add_vhost_to_servers(channel, vhost_name, server_names)

@@ -63,12 +63,16 @@ revocation from an external ACME authority.
 | Workers | `list-workers`, `worker-status`, `start-worker`, `stop-worker`, `reload-worker`, `restart-worker`, `reload-workers`, `restart-workers`, `add-worker`, `remove-worker` |
 | Services | `list-services`, `service-status`, `start-service`, `stop-service`, `reload-service`, `restart-service` |
 | Embedded applications | `list-applications`, `application-status`, `start-application`, `stop-application`, `restart-application` |
-| Orbit-linked applications | `list-linked-applications`, `linked-application-status`, `start-linked-application`, `stop-linked-application`, `restart-linked-application`, `send-linked-command` |
+| Link applications | `list-link-applications`, `link-application-status`, `start-link-application`, `stop-link-application`, `restart-link-application`, `send-link-command` |
 | Tasks | `list-tasks`, `task-status`, `start-task`, `stop-task`, `reload-task`, `restart-task`, `run-task` |
 | Users | `users schema`, `users list`, `users get`, `users create`, `users update`, `users delete` |
 | Certificates | `list-certificates`, `list-certificate-inventory`, `get-certificate`, `add-certificate`, `renew-certificate`, `renew-local-certificate`, `create-root-ca`, `create-certificate`, `activate-certificate`, `disable-certificate`, `remove-certificate`, `import-certificate`, `export-certificate`, `reload-resolver` |
 | Hosting | `list-hosting`, `list-aliases`, `add-alias`, `remove-alias`, `replace-alias`, `reload-vhosts`, `list-certificates-by-server`, `add-vhost-to-servers`, `remove-vhost-from-servers`, `list-vhosts-by-server`, `list-servers-by-vhost` |
 | DNS and domains | `dns`, `domain` subcommands |
+
+Link application commands also accept `list-link`, `link-status`, `start-link`,
+`stop-link`, `restart-link` and `send-link`. These commands require a client
+and server with the Link RPCs in `ApplicationManager`.
 
 Inspect arguments before running a state-changing operation:
 
