@@ -71,8 +71,8 @@ publish = true
 claviron-tools = { path = ".", version = "0.2.0-alpha.26", default-features = false }
 
 # ── Claviron packages ────────────────────────────────────────────────
-claviron = { version = "0.2.0-alpha.26", path = "../claviron", default-features = false }
-claviron-acme = { version = "0.2.0-alpha.26", path = "../backends/acme", default-features = false }
+claviron = { version = "0.2.0-alpha.26", default-features = false }
+claviron-acme = { version = "0.2.0-alpha.26", default-features = false }
 
 # ── Async runtime & primitives ───────────────────────────────────────
 tokio = "1"
