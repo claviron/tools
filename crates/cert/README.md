@@ -7,7 +7,7 @@ or require a running Claviron server.
 ## Install
 
 ```sh
-cargo install claviron-cert --version 0.2.0-alpha.25 --locked --registry crates-io
+cargo install claviron-cert --version 0.2.1 --locked --registry crates-io
 ```
 
 Installation requires a Rust toolchain and native build tools. Put Cargo's
@@ -62,7 +62,7 @@ The optional `hosting` feature adds PostgreSQL-backed issuer lookup; `sqlite`
 also enables SQLite. For example:
 
 ```sh
-cargo install claviron-cert --version 0.2.0-alpha.25 --locked --registry crates-io --features sqlite
+cargo install claviron-cert --version 0.2.1 --locked --registry crates-io --features sqlite
 claviron-cert --help
 ```
 

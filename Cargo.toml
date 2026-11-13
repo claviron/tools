@@ -58,21 +58,20 @@ default-members = [
 resolver = "3"
 
 [workspace.package]
-version = "0.2.0-alpha.26"
+version = "0.2.1"
 license = "MIT OR Apache-2.0"
 repository = "https://github.com/claviron/tools"
 homepage = "https://github.com/claviron"
-# Releases, including alpha versions, are published to crates.io.
 publish = true
 
 [workspace.dependencies]
 
 # ── Workspace crates ─────────────────────────────────────────────────
-claviron-tools = { path = ".", version = "0.2.0-alpha.26", default-features = false }
+claviron-tools = { path = ".", version = "0.2.1", default-features = false }
 
 # ── Claviron packages ────────────────────────────────────────────────
-claviron = { version = "0.2.0-alpha.26", default-features = false }
-claviron-acme = { version = "0.2.0-alpha.26", default-features = false }
+claviron = { version = "0.2.1", default-features = false }
+claviron-acme = { version = "0.2.1", default-features = false }
 
 # ── Async runtime & primitives ───────────────────────────────────────
 tokio = "1"
